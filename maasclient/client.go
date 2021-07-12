@@ -38,9 +38,9 @@ func NewClient(maasEndpoint string, apiKey string) *Client {
 	}
 }
 
-// Send sends the request
+// send sends the request
 // Content-type and body should be already added to req
-func (c *Client) Send(ctx context.Context, method string, apiPath string, params url.Values, v interface{}) error {
+func (c *Client) send(ctx context.Context, method string, apiPath string, params url.Values, v interface{}) error {
 	var err error
 	var req *http.Request
 

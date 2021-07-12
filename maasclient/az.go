@@ -14,7 +14,7 @@ type Zone struct {
 func (c *Client) GetZones() ([]Zone, error) {
 
 	var azs []Zone
-	err := c.Send(context.Background(), http.MethodGet, "/zones/", nil, &azs)
+	err := c.send(context.Background(), http.MethodGet, "/zones/", nil, &azs)
 
 	if err != nil {
 		return nil, err

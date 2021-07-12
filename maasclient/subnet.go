@@ -29,7 +29,7 @@ type Vlan struct {
 func (c *Client) GetSubnets() ([]Space, error) {
 
 	var spaces []Space
-	err := c.Send(context.Background(), http.MethodGet, "/spaces/", nil, &spaces)
+	err := c.send(context.Background(), http.MethodGet, "/spaces/", nil, &spaces)
 
 	if err != nil {
 		return nil, err

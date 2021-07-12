@@ -14,7 +14,7 @@ type Domain struct {
 func (c *Client) GetDomain() ([]Domain, error) {
 
 	var domains []Domain
-	err := c.Send(context.Background(), http.MethodGet, "/domains/", nil, &domains)
+	err := c.send(context.Background(), http.MethodGet, "/domains/", nil, &domains)
 
 	if err != nil {
 		return nil, err

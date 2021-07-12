@@ -14,7 +14,7 @@ type ResourcePool struct {
 func (c *Client) GetPools() ([]ResourcePool, error) {
 
 	var pools []ResourcePool
-	err := c.Send(context.Background(), http.MethodGet, "/resourcepools/", nil, &pools)
+	err := c.send(context.Background(), http.MethodGet, "/resourcepools/", nil, &pools)
 
 	if err != nil {
 		return nil, err

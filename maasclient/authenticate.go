@@ -25,7 +25,7 @@ func (c *Client) Authenticate() error {
 func (c *Client) ifUserExist() error {
 
 	var parsed interface{}
-	err := c.Send(context.Background(), http.MethodGet, "/users/?op=whoami", nil, &parsed)
+	err := c.send(context.Background(), http.MethodGet, "/users/?op=whoami", nil, &parsed)
 
 	if err != nil {
 		return err
