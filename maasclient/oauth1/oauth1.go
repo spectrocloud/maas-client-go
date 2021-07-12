@@ -4,14 +4,15 @@ import (
 	"crypto/hmac"
 	"crypto/sha1"
 	"encoding/base64"
-	"math/rand"
+	"fmt"
 	"net/url"
 	"strconv"
 	"strings"
 	"time"
+	guuid "github.com/google/uuid"
 )
 
-type OAuth1 struct {
+type OAuth struct {
 	ConsumerKey    string
 	ConsumerSecret string
 	AccessToken    string
@@ -20,10 +21,19 @@ type OAuth1 struct {
 
 // TODO add comment on-top about what is changed, and the header
 
+func NewOAuth(consumerKey, consumerSecret, accessToken, accessSecret string) *OAuth {
+	return &OAuth{
+		ConsumerKey:    consumerKey,
+		ConsumerSecret: consumerSecret,
+		AccessToken:    accessToken,
+		AccessSecret:   accessSecret,
+	}
+}
+
 // Params being any key-value url query parameter pairs
-func (auth OAuth1) BuildOAuth1Header(method, path string, params map[string]string) string {
+func (auth OAuth) BuildOAuthHeader(method, path string, params map[string]string) string {
 	vals := url.Values{}
-	vals.Add("oauth_nonce", generateNonce())
+	vals.Add("oauth_nonce", guuid.NewString())
 	vals.Add("oauth_consumer_key", auth.ConsumerKey)
 	vals.Add("oauth_signature_method", "HMAC-SHA1")
 	vals.Add("oauth_timestamp", strconv.Itoa(int(time.Now().Unix())))
@@ -41,10 +51,13 @@ func (auth OAuth1) BuildOAuth1Header(method, path string, params map[string]stri
 	signingKey := url.QueryEscape(auth.ConsumerSecret) + "&" + url.QueryEscape(auth.AccessSecret)
 	signature := calculateSignature(signatureBase, signingKey)
 
-	return "OAuth oauth_consumer_key=\"" + url.QueryEscape(vals.Get("oauth_consumer_key")) + "\", oauth_nonce=\"" + url.QueryEscape(vals.Get("oauth_nonce")) +
-		"\", oauth_signature=\"" + url.QueryEscape(signature) + "\", oauth_signature_method=\"" + url.QueryEscape(vals.Get("oauth_signature_method")) +
-		"\", oauth_timestamp=\"" + url.QueryEscape(vals.Get("oauth_timestamp")) + "\", oauth_token=\"" + url.QueryEscape(vals.Get("oauth_token")) +
-		"\", oauth_version=\"" + url.QueryEscape(vals.Get("oauth_version")) + "\""
+	vals.Add("oauth_signature", signature)
+
+	var authHeader []string
+	for key := range vals {
+		authHeader = append(authHeader, fmt.Sprintf(`%s="%s"`, key, url.QueryEscape(vals.Get(key))))
+	}
+	return "OAuth " + strings.Join(authHeader, ", ")
 }
 
 func calculateSignature(base, key string) string {
@@ -52,13 +65,4 @@ func calculateSignature(base, key string) string {
 	hash.Write([]byte(base))
 	signature := hash.Sum(nil)
 	return base64.StdEncoding.EncodeToString(signature)
-}
-
-func generateNonce() string {
-	const allowed = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	b := make([]byte, 48)
-	for i := range b {
-		b[i] = allowed[rand.Intn(len(allowed))]
-	}
-	return string(b)
 }

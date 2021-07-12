@@ -75,8 +75,7 @@ func (c *Client) sendRequest(req *http.Request, params url.Values, v interface{}
 	req.Header.Set("Accept", "application/json; charset=utf-8")
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	authHeader := authHeader(req, params, c.apiKey)
-	req.Header.Set("Authorization", authHeader)
+	req.Header.Set("Authorization", authHeader(req, params, c.apiKey))
 
 	res, err := c.HTTPClient.Do(req)
 	if err != nil {
@@ -84,8 +83,6 @@ func (c *Client) sendRequest(req *http.Request, params url.Values, v interface{}
 	}
 
 	defer closeResponseBody(res)
-
-	//debugBody(res)
 
 	// Try to unmarshall into errorResponse
 	if res.StatusCode != http.StatusOK && res.StatusCode != http.StatusNoContent {
@@ -115,17 +112,12 @@ func closeResponseBody(response *http.Response) {
 
 func authHeader(req *http.Request, queryParams url.Values, apiKey string) string {
 	key := strings.SplitN(apiKey, ":", 3)
-	//config := oauth1.NewConfig(key[0], "")
-	//token := oauth1
 
-	auth := oauth1.OAuth1{
-		ConsumerKey:    key[0],
-		ConsumerSecret: "",
-		AccessToken:    key[1],
-		AccessSecret:   key[2],
+	if len(key) != 3 {
+		return ""
 	}
+	auth := oauth1.NewOAuth(key[0], "", key[1], key[2])
 
-	//queryParams, _ := url.ParseQuery(req.URL.RawQuery)
 	params := make(map[string]string)
 	if req.Method != http.MethodPut {
 		// for some bizarre-reason PUT doesn't need this
@@ -134,16 +126,5 @@ func authHeader(req *http.Request, queryParams url.Values, apiKey string) string
 		}
 	}
 
-	authHeader := auth.BuildOAuth1Header(req.Method, req.URL.String(), params)
-	return authHeader
-}
-
-func debugBody(res *http.Response) {
-	bodyBytes, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		return
-	}
-	bodyString := string(bodyBytes)
-
-	fmt.Println(bodyString)
+	return auth.BuildOAuthHeader(req.Method, req.URL.String(), params)
 }
