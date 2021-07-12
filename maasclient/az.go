@@ -11,10 +11,10 @@ type Zone struct {
 	Description string `json:"description"`
 }
 
-func (c *Client) GetZones(client Client) ([]Zone, error) {
+func (c *Client) GetZones() ([]Zone, error) {
 
 	var azs []Zone
-	err := client.Send(context.Background(), http.MethodGet, "/zones/", nil, &azs)
+	err := c.Send(context.Background(), http.MethodGet, "/zones/", nil, &azs)
 
 	if err != nil {
 		return nil, err

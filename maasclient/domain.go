@@ -5,19 +5,21 @@ import (
 	"net/http"
 )
 
-type ResourcePool struct {
+type Domain struct {
 	ResourceUri string `json:"resourceURI"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
 }
 
-func (c *Client) GetPools() ([]ResourcePool, error) {
+func (c *Client) GetDomain() ([]Domain, error) {
 
-	var pools []ResourcePool
-	err := c.Send(context.Background(), http.MethodGet, "/resourcepools/", nil, &pools)
+	var domains []Domain
+	err := c.Send(context.Background(), http.MethodGet, "/domains/", nil, &domains)
 
 	if err != nil {
 		return nil, err
 	}
-	return pools, nil
+	return domains, nil
 }
+
+

@@ -5,11 +5,11 @@ import (
 	"crypto/sha1"
 	"encoding/base64"
 	"fmt"
-	"math/rand"
 	"net/url"
 	"strconv"
 	"strings"
 	"time"
+	guuid "github.com/google/uuid"
 )
 
 type OAuth struct {
@@ -33,7 +33,7 @@ func NewOAuth(consumerKey, consumerSecret, accessToken, accessSecret string) *OA
 // Params being any key-value url query parameter pairs
 func (auth OAuth) BuildOAuthHeader(method, path string, params map[string]string) string {
 	vals := url.Values{}
-	vals.Add("oauth_nonce", generateNonce())
+	vals.Add("oauth_nonce", guuid.NewString())
 	vals.Add("oauth_consumer_key", auth.ConsumerKey)
 	vals.Add("oauth_signature_method", "HMAC-SHA1")
 	vals.Add("oauth_timestamp", strconv.Itoa(int(time.Now().Unix())))
@@ -65,13 +65,4 @@ func calculateSignature(base, key string) string {
 	hash.Write([]byte(base))
 	signature := hash.Sum(nil)
 	return base64.StdEncoding.EncodeToString(signature)
-}
-
-func generateNonce() string {
-	const allowed = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	b := make([]byte, 48)
-	for i := range b {
-		b[i] = allowed[rand.Intn(len(allowed))]
-	}
-	return string(b)
 }
