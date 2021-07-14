@@ -6,9 +6,10 @@ import (
 )
 
 type Zone struct {
-	ResourceUri string `json:"resourceURI"`
+	ID          int          `json:"id"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
+	ResourceUri string `json:"resource_uri"`
 }
 
 func (c *Client) GetZones() ([]Zone, error) {
