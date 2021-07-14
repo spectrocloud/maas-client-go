@@ -244,12 +244,11 @@ func (c *Client) sendRequestUpload(req *http.Request, params url.Values, content
 	//debugBody(res)
 
 	// Try to unmarshall into errorResponse
-	if res.StatusCode != http.StatusOK && res.StatusCode != http.StatusNoContent {
+	if res.StatusCode != http.StatusCreated && res.StatusCode != http.StatusOK {
 		bodyBytes, err := ioutil.ReadAll(res.Body)
 		if err != nil {
 			return err
 		}
-
 		return fmt.Errorf("unknown error, status code: %d, body: %s", res.StatusCode, string(bodyBytes))
 	} else if res.StatusCode == http.StatusNoContent {
 		return nil
