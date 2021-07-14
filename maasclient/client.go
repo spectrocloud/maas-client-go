@@ -73,6 +73,39 @@ func (c *Client) send(ctx context.Context, method string, apiPath string, params
 	return c.sendRequest(req, params, v)
 }
 
+
+func (c *Client) sendTextBodyResponse(ctx context.Context, method string, apiPath string, params url.Values, output *string) error {
+	var err error
+	var req *http.Request
+
+	if method == http.MethodGet {
+		req, err = http.NewRequestWithContext(
+			ctx,
+			method,
+			fmt.Sprintf("%s%s", c.baseURL, apiPath),
+			nil,
+		)
+		if err != nil {
+			return err
+		}
+
+		req.URL.RawQuery = params.Encode()
+	} else {
+		req, err = http.NewRequestWithContext(
+			ctx,
+			method,
+			fmt.Sprintf("%s%s", c.baseURL, apiPath),
+			strings.NewReader(params.Encode()),
+		)
+		if err != nil {
+			return err
+		}
+	}
+
+	return c.sendRequestTextBodyResponse(req, params, output)
+}
+
+
 // send sends the request
 // Content-type and body should be already added to req
 func (c *Client) sendRequestWithBody(ctx context.Context, method string, apiPath string, contenttype string, params url.Values, body io.Reader, v interface{}) error {
@@ -124,6 +157,43 @@ func (c *Client) sendRequest(req *http.Request, params url.Values, v interface{}
 
 	return nil
 }
+
+
+func (c *Client) sendRequestTextBodyResponse(req *http.Request, params url.Values, output *string) error {
+	req.Header.Set("Accept", "application/json; charset=utf-8")
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	req.Header.Set("Authorization", authHeader(req, params, c.apiKey))
+
+	res, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return err
+	}
+
+	defer closeResponseBody(res)
+
+	// Try to unmarshall into errorResponse
+	if res.StatusCode != http.StatusOK && res.StatusCode != http.StatusNoContent {
+		bodyBytes, err := ioutil.ReadAll(res.Body)
+		if err != nil {
+			return err
+		}
+
+		return fmt.Errorf("unknown error, status code: %d, body: %s", res.StatusCode, string(bodyBytes))
+	} else if res.StatusCode == http.StatusNoContent {
+		return nil
+	}
+
+	data, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return err
+	}
+
+	*output = string(data)
+
+	return nil
+}
+
 
 func closeResponseBody(response *http.Response) {
 	err := response.Body.Close()
