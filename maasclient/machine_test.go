@@ -29,7 +29,7 @@ func TestClient_GetMachine(t *testing.T) {
 	assert.NotEmpty(t, res.Hostname)
 	assert.Equal(t, res.State, "Deployed")
 	assert.NotEmpty(t, res.PowerState)
-	assert.Equal(t, res.AvailabilityZone, "az1")
+	assert.Equal(t, res.Zone.Name, "az1")
 
 	assert.NotEmpty(t, res.FQDN)
 	assert.NotEmpty(t, res.IpAddresses)
