@@ -1,10 +1,8 @@
 package maasclient
 
 import (
-	"context"
 	"errors"
 	"fmt"
-	"net/http"
 	"strings"
 )
 
@@ -15,18 +13,7 @@ func (c *Client) Authenticate() error {
 		return errors.New(fmt.Sprintf("invalid API key %q; expected \"<consumer secret>:<token key>:<token secret>\"", c.apiKey))
 	}
 
-	err := c.ifUserExist()
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (c *Client) ifUserExist() error {
-
-	var parsed interface{}
-	err := c.send(context.Background(), http.MethodGet, "/users/?op=whoami", nil, &parsed)
-
+	_, err := c.GetZones()
 	if err != nil {
 		return err
 	}
