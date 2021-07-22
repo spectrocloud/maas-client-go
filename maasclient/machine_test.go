@@ -1,7 +1,8 @@
-package maasclient
+package maasclient_test
 
 import (
 	"context"
+	. "github.com/spectrocloud/maas-client-go/maasclient"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/utils/pointer"
 	"math/rand"
@@ -17,7 +18,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestClient_GetMachine(t *testing.T) {
-	c := NewClient(os.Getenv("MAAS_ENDPOINT"), os.Getenv("MAAS_API_KEY"))
+	c := NewClient(os.Getenv(MAAS_ENDPOINT), os.Getenv(MAAS_APIKEY))
 
 	ctx := context.Background()
 	res, err := c.GetMachine(ctx, "e37xxm")
@@ -42,7 +43,7 @@ func TestClient_GetMachine(t *testing.T) {
 }
 
 func TestClient_AllocateMachine(t *testing.T) {
-	c := NewClient(os.Getenv("MAAS_ENDPOINT"), os.Getenv("MAAS_API_KEY"))
+	c := NewClient(os.Getenv(MAAS_ENDPOINT), os.Getenv(MAAS_APIKEY))
 
 	ctx := context.Background()
 
@@ -82,7 +83,7 @@ func TestClient_AllocateMachine(t *testing.T) {
 }
 
 func TestClient_DeployMachine(t *testing.T) {
-	c := NewClient(os.Getenv("MAAS_ENDPOINT"), os.Getenv("MAAS_API_KEY"))
+	c := NewClient(os.Getenv(MAAS_ENDPOINT), os.Getenv(MAAS_APIKEY))
 
 	ctx := context.Background()
 
@@ -124,7 +125,7 @@ func TestClient_DeployMachine(t *testing.T) {
 
 func TestClient_UpdateMachine(t *testing.T) {
 	ctx := context.Background()
-	c := NewClient(os.Getenv("MAAS_ENDPOINT"), os.Getenv("MAAS_API_KEY"))
+	c := NewClient(os.Getenv(MAAS_ENDPOINT), os.Getenv(MAAS_APIKEY))
 
 	swapSize := 0
 	options := UpdateMachineOptions{

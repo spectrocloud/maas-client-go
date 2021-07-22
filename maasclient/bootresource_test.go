@@ -1,14 +1,15 @@
-package maasclient
+package maasclient_test
 
 import (
 	"context"
+	. "github.com/spectrocloud/maas-client-go/maasclient"
 	"github.com/stretchr/testify/assert"
 	"os"
 	"testing"
 )
 
 func TestGetBootResources(t *testing.T) {
-	c := NewClient(os.Getenv("MAAS_ENDPOINT"), os.Getenv("MAAS_API_KEY"))
+	c := NewClient(os.Getenv(MAAS_ENDPOINT), os.Getenv(MAAS_APIKEY))
 
 	ctx := context.Background()
 
@@ -30,7 +31,6 @@ func TestGetBootResources(t *testing.T) {
 		assert.NotNil(t, status)
 		assert.False(t, *status)
 	})
-
 
 	t.Run("import image", func(t *testing.T) {
 		status, err := c.UploadBootResource(ctx, UploadBootResourceInput{
