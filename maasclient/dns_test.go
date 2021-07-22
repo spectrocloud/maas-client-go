@@ -1,7 +1,8 @@
-package maasclient
+package maasclient_test
 
 import (
 	"context"
+	. "github.com/spectrocloud/maas-client-go/maasclient"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/utils/pointer"
 	"os"
@@ -9,7 +10,7 @@ import (
 )
 
 func TestGetDNSResources(t *testing.T) {
-	c := NewClient(os.Getenv("MAAS_ENDPOINT"), os.Getenv("MAAS_API_KEY"))
+	c := NewClient(os.Getenv(MAAS_ENDPOINT), os.Getenv(MAAS_APIKEY))
 
 	ctx := context.Background()
 
