@@ -1,23 +1,20 @@
-package maasclient_test
+package maasclient
 
 import (
-	"github.com/spectrocloud/maas-client-go/maasclient"
+	"context"
+	"github.com/stretchr/testify/assert"
 	"os"
 	"testing"
 )
 
-func TestMaasResourceDomain(t *testing.T) {
+func TestDomain(t *testing.T) {
+	c := NewAuthenticatedClientSet(os.Getenv("MAAS_ENDPOINT"), os.Getenv("MAAS_API_KEY"))
 
-	client := maasclient.NewClient(os.Getenv(MAAS_ENDPOINT), os.Getenv(MAAS_APIKEY))
-	pools, err := client.GetDomain()
-	if err != nil {
-		t.Error(err.Error())
-	}
-	for _, pool := range pools {
-		if pool.Name == "" {
-			t.Error("Domain name is empty")
-		}
-	}
-	t.Logf("Domain %#v", err)
+	ctx := context.Background()
 
+	t.Run("list domains", func(t *testing.T) {
+		res, err := c.Domains().List(ctx)
+		assert.Nil(t, err)
+		assert.NotNil(t, res)
+	})
 }

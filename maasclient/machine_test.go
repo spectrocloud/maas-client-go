@@ -1,10 +1,8 @@
-package maasclient_test
+package maasclient
 
 import (
 	"context"
-	. "github.com/spectrocloud/maas-client-go/maasclient"
 	"github.com/stretchr/testify/assert"
-	"k8s.io/utils/pointer"
 	"math/rand"
 	"os"
 	"testing"
@@ -18,44 +16,49 @@ func TestMain(m *testing.M) {
 }
 
 func TestClient_GetMachine(t *testing.T) {
-	c := NewClient(os.Getenv(MAAS_ENDPOINT), os.Getenv(MAAS_APIKEY))
+	c := NewAuthenticatedClientSet(os.Getenv("MAAS_ENDPOINT"), os.Getenv("MAAS_API_KEY"))
 
 	ctx := context.Background()
-	res, err := c.GetMachine(ctx, "e37xxm")
+	res := c.Machines().Machine("e37xxm")
+	err := res.Get(ctx)
+	//.machine(ctx, "e37xxm")
 
 	assert.Nil(t, err, "expecting nil error")
 
 	assert.NotNil(t, res, "expecting non-nil result")
-	assert.NotEmpty(t, res.SystemID)
-	assert.NotEmpty(t, res.Hostname)
-	assert.Equal(t, res.State, "Deployed")
-	assert.NotEmpty(t, res.PowerState)
-	assert.Equal(t, res.Zone.Name, "az1")
+	assert.NotEmpty(t, res.SystemID())
+	assert.NotEmpty(t, res.Hostname())
+	assert.Equal(t, res.State(), "Deployed")
+	assert.NotEmpty(t, res.PowerState())
+	assert.Equal(t, res.Zone().Name(), "az2")
 
-	assert.NotEmpty(t, res.FQDN)
-	assert.NotEmpty(t, res.IpAddresses)
+	assert.NotEmpty(t, res.FQDN())
+	assert.NotEmpty(t, res.IPAddresses())
 
-	assert.NotEmpty(t, res.OSSystem)
-	assert.NotEmpty(t, res.DistroSeries)
+	assert.NotEmpty(t, res.OSSystem())
+	assert.NotEmpty(t, res.DistroSeries())
 
-	assert.Zero(t, *res.SwapSize)
+	assert.Zero(t, res.SwapSize())
 
 }
 
 func TestClient_AllocateMachine(t *testing.T) {
-	c := NewClient(os.Getenv(MAAS_ENDPOINT), os.Getenv(MAAS_APIKEY))
+	c := NewAuthenticatedClientSet(os.Getenv("MAAS_ENDPOINT"), os.Getenv("MAAS_API_KEY"))
 
 	ctx := context.Background()
 
-	releaseMachine := func(res *Machine) {
+	releaseMachine := func(res Machine) {
 		if res != nil {
-			err := c.ReleaseMachine(ctx, res.SystemID)
+			err := res.Releaser().
+				WithComment("releaseaan").
+				Release(ctx)
 			assert.Nil(t, err)
+			assert.NotNil(t, res)
 		}
 	}
 
 	t.Run("no-options", func(t *testing.T) {
-		res, err := c.AllocateMachine(ctx, nil)
+		res, err := c.Machines().Allocator().Allocate(ctx)
 
 		assert.Nil(t, err, "expecting nil error")
 		assert.NotNil(t, res)
@@ -64,7 +67,10 @@ func TestClient_AllocateMachine(t *testing.T) {
 	})
 
 	t.Run("bad-options", func(t *testing.T) {
-		res, err := c.AllocateMachine(ctx, &AllocateMachineOptions{SystemID: pointer.StringPtr("abc")})
+		res, err := c.Machines().
+			Allocator().
+			WithSystemID("abc").
+			Allocate(ctx)
 
 		assert.NotNil(t, err, "expecting error")
 
@@ -72,7 +78,7 @@ func TestClient_AllocateMachine(t *testing.T) {
 	})
 
 	t.Run("with-az", func(t *testing.T) {
-		res, err := c.AllocateMachine(ctx, &AllocateMachineOptions{AvailabilityZone: pointer.StringPtr("az1")})
+		res, err := c.Machines().Allocator().WithZone("az1").Allocate(ctx)
 
 		assert.Nil(t, err, "expecting nil error")
 		assert.NotNil(t, res)
@@ -83,37 +89,35 @@ func TestClient_AllocateMachine(t *testing.T) {
 }
 
 func TestClient_DeployMachine(t *testing.T) {
-	c := NewClient(os.Getenv(MAAS_ENDPOINT), os.Getenv(MAAS_APIKEY))
+	c := NewAuthenticatedClientSet(os.Getenv("MAAS_ENDPOINT"), os.Getenv("MAAS_API_KEY"))
 
 	ctx := context.Background()
 
-	releaseMachine := func(res *Machine) {
+	releaseMachine := func(res Machine) {
 		if res != nil {
-			err := c.ReleaseMachine(ctx, res.SystemID)
+			err := res.Releaser().
+				WithComment("releaseaan a").
+				Release(ctx)
 			assert.Nil(t, err)
 		}
 	}
 
 	t.Run("simple", func(t *testing.T) {
-		res, err := c.AllocateMachine(ctx, nil)
+		res, err := c.Machines().Allocator().Allocate(ctx)
 		if err != nil {
 			t.Fatal("Machine didn't allocate")
 		}
 		assert.NotNil(t, res)
-		assert.NotEmpty(t, res.SystemID)
+		assert.NotEmpty(t, res.SystemID())
 
-		options := DeployMachineOptions{
-			SystemID:     res.SystemID,
-			OSSystem:     pointer.StringPtr("custom"),
-			DistroSeries: pointer.StringPtr("spectro-u18-k11815"),
-		}
-
-		res, err = c.DeployMachine(ctx, options)
+		err = res.Deployer().
+			SetOSSystem("custom").
+			SetDistroSeries("u-1804-0-k-11912-0").Deploy(ctx)
 		assert.Nil(t, err, "expecting nil error")
 		assert.NotNil(t, res)
 
-		assert.Equal(t, res.OSSystem, "custom")
-		assert.Equal(t, res.DistroSeries, "spectro-u18-k11815")
+		assert.Equal(t, res.OSSystem(), "custom")
+		assert.Equal(t, res.DistroSeries(), "u-1804-0-k-11912-0")
 
 		// Give me a few seconds before clenaing up
 		time.Sleep(15 * time.Second)
@@ -124,18 +128,14 @@ func TestClient_DeployMachine(t *testing.T) {
 }
 
 func TestClient_UpdateMachine(t *testing.T) {
-	ctx := context.Background()
-	c := NewClient(os.Getenv(MAAS_ENDPOINT), os.Getenv(MAAS_APIKEY))
+	c := NewAuthenticatedClientSet(os.Getenv("MAAS_ENDPOINT"), os.Getenv("MAAS_API_KEY"))
 
-	swapSize := 0
-	options := UpdateMachineOptions{
-		SystemID: "e37xxm",
-		SwapSize: &swapSize,
-	}
-
-	res, err := c.UpdateMachine(ctx, options)
+	res, err := c.Machines().Machine("e37xxm").
+		Modifier().
+		SetSwapSize(10).
+		Update(context.Background())
 	assert.Nil(t, err)
 	assert.NotNil(t, res)
-	assert.Equal(t, *res.SwapSize, 0)
+	assert.Equal(t, res.SwapSize(), 10)
 
 }

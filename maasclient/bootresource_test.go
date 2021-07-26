@@ -1,47 +1,39 @@
-package maasclient_test
+package maasclient
 
 import (
 	"context"
-	. "github.com/spectrocloud/maas-client-go/maasclient"
 	"github.com/stretchr/testify/assert"
 	"os"
 	"testing"
 )
 
 func TestGetBootResources(t *testing.T) {
-	c := NewClient(os.Getenv(MAAS_ENDPOINT), os.Getenv(MAAS_APIKEY))
+	c := NewAuthenticatedClientSet(os.Getenv("MAAS_ENDPOINT"), os.Getenv("MAAS_API_KEY"))
 
 	ctx := context.Background()
 
 	t.Run("list-all", func(t *testing.T) {
-		list, err := c.ListBootResources(ctx)
+		list, err := c.BootResources().List(ctx, nil)
 		assert.Nil(t, err, "expecting nil error")
 		assert.NotEmpty(t, list)
 	})
-
+	//
 	t.Run("list-by-id", func(t *testing.T) {
-		resource, err := c.GetBootResource(ctx, "7")
+		res := c.BootResources().BootResource(7)
+		err := res.Get(ctx)
 		assert.Nil(t, err)
-		assert.NotNil(t, resource)
-	})
-
-	t.Run("list-importing", func(t *testing.T) {
-		status, err := c.BootResourcesImporting(ctx)
-		assert.Nil(t, err, "expecting nil error")
-		assert.NotNil(t, status)
-		assert.False(t, *status)
+		assert.NotNil(t, res)
 	})
 
 	t.Run("import image", func(t *testing.T) {
-		status, err := c.UploadBootResource(ctx, UploadBootResourceInput{
-			Name:         "test-image",
-			Architecture: "amd64/generic",
-			Digest:       "e9844638c7345d182c5d88e1eaeae74749d02beeca38587a530207fddc0a280a",
-			Size:         "1262032476",
-			Title:        "dstestimage",
-			File:         "/Users/deepak/maas/ubuntu.tar.gz",
-		})
-		assert.NotNil(t, err)
-		assert.NotNil(t, status)
+
+		res, err := c.BootResources().Builder("test-image",
+			"amd64/generic",
+			"e9844638c7345d182c5d88e1eaeae74749d02beeca38587a530207fddc0a280a",
+			"/Users/deepak/maas/ubuntu.tar.gz", 1262032476).Create(ctx)
+		assert.Nil(t, err)
+		err = res.Upload(ctx)
+		assert.Nil(t, err)
+		assert.NotNil(t, res)
 	})
 }

@@ -5,11 +5,11 @@ import (
 	"crypto/sha1"
 	"encoding/base64"
 	"fmt"
+	guuid "github.com/google/uuid"
 	"net/url"
 	"strconv"
 	"strings"
 	"time"
-	guuid "github.com/google/uuid"
 )
 
 type OAuth struct {

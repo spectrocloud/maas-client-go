@@ -4,68 +4,74 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/pkg/errors"
 	"io"
-	"io/ioutil"
 	"mime/multipart"
-	"net/http"
 	"net/url"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
-	"time"
 )
 
-type BootResource struct {
-	Id int `json:"id"`
-	Type string `json:"type"`
-	Name string `json:"name"`
-	Architecture string `json:"architecture"`
-	SubArches string `json:"subarches"`
-	ResourceURI string `json:"resource_uri"`
-	Title string `json:"title"`
-	Sets map[string]Set `json:"sets"`
+const (
+	BootResourcesAPIPath      = "/boot-resources/"
+	BootResourceAPIPathFormat = "/boot-resources/%d/"
+)
+
+// Implements subset of https://maas.io/docs/api#boot-resources
+// Usage bootstrap_test.go
+type BootResources interface {
+	List(ctx context.Context, params Params) ([]BootResource, error)
+	BootResource(id int) BootResource
+	Builder(name, architecture, hash, filePath string, size int) BootResourceBuilder
 }
 
+type BootResource interface {
+	BootResourceUploader
+	Get(ctx context.Context) error
+	Delete(ctx context.Context) error
+	ID() int
+	Type() string
+	Name() string
+	Architecture() string
+	SubArches() string
+	Title() string
+	Sets() map[string]Set
+}
+
+type BootResourceBuilder interface {
+	WithTitle(title string) BootResourceBuilder
+	WithFileType(fileType string) BootResourceBuilder
+	Create(ctx context.Context) (BootResource, error)
+}
+
+type BootResourceUploader interface {
+	Upload(ctx context.Context) error
+}
 
 type Set struct {
-	Version string `json:"version"`
-	Label string `json:"label"`
-	Size int `json:"size"`
-	Complete bool `json:"complete"`
-	Progress int `json:"progress"`
-	Files map[string]File `json:"files"`
+	Version  string             `json:"version"`
+	Label    string             `json:"label"`
+	Size     int                `json:"size"`
+	Complete bool               `json:"complete"`
+	Progress int                `json:"progress"`
+	Files    map[string]SetFile `json:"files"`
 }
 
-type File struct {
-	FileName string `json:"filename"`
-	FileType string `json:"filetype"`
-	SHA256 string `json:"sha256"`
-	Size int `json:"size"`
-	Complete bool `json:"complete"`
-	Progress int `json:"progress"`
+type SetFile struct {
+	FileName  string `json:"filename"`
+	FileType  string `json:"filetype"`
+	SHA256    string `json:"sha256"`
+	Size      int    `json:"size"`
+	Complete  bool   `json:"complete"`
+	Progress  int    `json:"progress"`
 	UploadURI string `json:"upload_uri"`
 }
 
-func (b *BootResource) LatestSet() (*Set, error) {
-	if len(b.Sets) == 0 {
-		return nil, errors.New("no set found in bootresource")
-	}
-
-	keys := make([]string, 0)
-	for key := range b.Sets {
-		keys = append(keys, key)
-	}
-
-	sort.Strings(keys)
-	// return first element
-	set := b.Sets[keys[0]]
-	return &set, nil
-}
-
-func (s *Set) GetUploadURI() (string, error) {
-
+func (s *Set) getUploadURI() (string, error) {
 	if len(s.Files) != 1 {
 		return "", errors.New("multiple files present in set")
 	}
@@ -75,85 +81,135 @@ func (s *Set) GetUploadURI() (string, error) {
 	return "", nil
 }
 
-func (c *Client) ListBootResources(ctx context.Context) ([]*BootResource, error) {
-	q := url.Values{}
-	var res []*BootResource
-	if err := c.send(ctx, http.MethodGet, "/boot-resources/", q, &res); err != nil {
-		return nil, err
-	}
-	return res, nil
+type bootResources struct {
+	Controller
+	filePath string
 }
 
-func (c *Client) BootResourcesImporting(ctx context.Context) (*bool, error) {
-	q := url.Values{}
-	q.Add("op", "is_importing")
-	var res *bool
-	if err := c.send(ctx, http.MethodGet, "/boot-resources/", q, &res); err != nil {
-		return nil, err
-	}
-	return res, nil
+func (brs *bootResources) BootResource(id int) BootResource {
+	return bootResourceStructToInterface(&bootResource{
+		id: id,
+	}, brs.client)
 }
 
-type UploadBootResourceInput struct {
-	Name string
-	Architecture string
-	Digest string
-	Size string
-	Title string
-	File string
+func (brs *bootResources) WithTitle(title string) BootResourceBuilder {
+	brs.params.Set(TitleKey, title)
+	return brs
 }
 
-func (c *Client) UploadBootResource(ctx context.Context, input UploadBootResourceInput) (*BootResource, error) {
-	q := url.Values{}
+func (brs *bootResources) WithFileType(fileType string) BootResourceBuilder {
+	brs.params.Set(FileTypeKey, fileType)
+	return brs
+}
 
-	q.Add("name", input.Name)
-	q.Add("architecture", input.Architecture)
-	q.Add("sha256", input.Digest)
-	q.Add("size", input.Size)
-	q.Add("title", input.Title)
-
-
+func (brs *bootResources) Create(ctx context.Context) (BootResource, error) {
 	buf := new(bytes.Buffer)
 	writer := multipart.NewWriter(buf)
-	err := writeMultiPartParams(writer, q)
+	err := writeMultiPartParams(writer, brs.params.Values())
 	if err != nil {
 		return nil, err
 	}
 	writer.Close()
 
-	var res *BootResource
-	if err := c.sendRequestWithBody(ctx, http.MethodPost, "/boot-resources/", writer.FormDataContentType(),q, buf, &res); err != nil {
-		return nil, err
-	}
-
-	lset, err := res.LatestSet()
+	res, err := brs.client.PostForm(ctx, brs.apiPath, writer.FormDataContentType(), brs.params.Values(), buf)
 	if err != nil {
 		return nil, err
 	}
 
-	uri, err := lset.GetUploadURI()
+	var obj *bootResource
+	err = unMarshalJson(res, &obj)
 	if err != nil {
 		return nil, err
 	}
 
+	bootResourceStructToInterface(obj, brs.client)
+	obj.filePath = brs.filePath
 
-	f, err := os.Open(input.File)
+	return obj, nil
+}
 
+func (brs *bootResources) List(ctx context.Context, params Params) ([]BootResource, error) {
+	res, err := brs.client.Get(ctx, brs.apiPath, brs.params.Values())
 	if err != nil {
 		return nil, err
+	}
+
+	var obj []*bootResource
+	err = unMarshalJson(res, &obj)
+	if err != nil {
+		return nil, err
+	}
+
+	return bootResourceStructSliceToInterface(obj, brs.client), nil
+}
+
+func bootResourceStructSliceToInterface(in []*bootResource, client Client) []BootResource {
+	var out []BootResource
+	for _, br := range in {
+		out = append(out, bootResourceStructToInterface(br, client))
+	}
+	return out
+}
+
+func bootResourceStructToInterface(in *bootResource, client Client) BootResource {
+	in.client = client
+	in.apiPath = fmt.Sprintf(BootResourceAPIPathFormat, in.id)
+	in.params = ParamsBuilder()
+	return in
+}
+
+func (brs *bootResources) Builder(name, architecture, hash, filePath string, size int) BootResourceBuilder {
+	brs.params.Reset()
+	brs.params.Set(NameKey, name)
+	brs.params.Set(ArchitectureKey, architecture)
+	brs.params.Set(SHA256Key, hash)
+	brs.params.Set(SizeKey, strconv.Itoa(size))
+
+	brs.filePath = filePath
+
+	return brs
+}
+
+type bootResource struct {
+	id               int
+	name             string
+	bootResourceType string
+	architecture     string
+	subarches        string
+	title            string
+	sets             map[string]Set
+
+	filePath string
+	Controller
+}
+
+func (b *bootResource) Upload(ctx context.Context) error {
+	lset, err := b.LatestSet()
+	if err != nil {
+		return err
+	}
+
+	uri, err := lset.getUploadURI()
+	if err != nil {
+		return err
+	}
+
+	f, err := os.Open(b.filePath)
+	if err != nil {
+		return err
 	}
 
 	defer f.Close()
 
 	reader := bufio.NewReader(f)
-	fileBuf := make([]byte, 1 << 22)
+	fileBuf := make([]byte, 1<<22)
 
 	for {
 		n, err := reader.Read(fileBuf)
 
 		if err != nil {
 			if err != io.EOF {
-				return nil, err
+				return err
 			}
 			break
 		}
@@ -161,106 +217,117 @@ func (c *Client) UploadBootResource(ctx context.Context, input UploadBootResourc
 		if n < (1 << 22) {
 			fileBufEnd := make([]byte, n)
 			copy(fileBufEnd, fileBuf)
-			var res *string
-			if err := c.sendRequestPutWithBody(ctx, http.MethodPut, uri, q, fileBufEnd, n, &res); err != nil {
-				return nil, err
+
+			if err := b.uploadBuffer(ctx, uri, fileBufEnd, n); err != nil {
+				return err
 			}
 			break
 		}
 
-		var res *string
-		if err := c.sendRequestPutWithBody(ctx, http.MethodPut, uri, q, fileBuf, n, &res); err != nil {
-			return nil, err
-		}
-	}
-	return res, nil
-}
-
-
-func (c *Client) sendRequestPutWithBody(ctx context.Context, method string, apiPath string, params url.Values, fileBuffer []byte, size int, v interface{}) error {
-
-	var err error
-	var req *http.Request
-
-	req, err = http.NewRequestWithContext(
-		ctx,
-		method,
-		fmt.Sprintf("%s%s", c.baseURL, apiPath),
-		bytes.NewBuffer(fileBuffer),
-	)
-	if err != nil {
-		return err
-	}
-
-	return c.sendRequestUploadPut(req, params, len(fileBuffer), v)
-}
-
-func (c *Client) sendRequestUploadPut(req *http.Request, params url.Values, size int, v interface{}) error {
-	//func (c *Client) sendRequest(req *http.Request, urlValues *url.Values, v interface{}) error {
-	req.Header.Set("Accept", "application/json; charset=utf-8")
-	req.Header.Set("Content-Type", "application/octet-stream")
-
-	// for post requests longer than 300 seconds
-	ticker := time.NewTicker(2 * time.Minute)
-	done := make(chan bool)
-	go func() {
-		for {
-			select {
-			case <-done:
-				return
-			case t := <-ticker.C:
-				fmt.Println("refresing auth token", time.Unix(t.Unix(), 0).Format(time.RFC3339))
-				authHeader := authHeader(req, params, c.apiKey)
-				req.Header.Set("Authorization", authHeader)
-			}
-		}
-	}()
-
-
-	defer func() {
-		ticker.Stop()
-		done <- true
-	}()
-
-	req.ContentLength = int64(size)
-
-	authHeader := authHeader(req, params, c.apiKey)
-	req.Header.Set("Authorization", authHeader)
-
-
-	res, err := c.HTTPClient.Do(req)
-	if err != nil {
-		fmt.Println(err.Error())
-		return err
-	}
-
-	defer res.Body.Close()
-
-	// Try to unmarshall into errorResponse
-	if res.StatusCode != http.StatusCreated && res.StatusCode != http.StatusOK {
-		bodyBytes, err := ioutil.ReadAll(res.Body)
-		if err != nil {
+		if err := b.uploadBuffer(ctx, uri, fileBuf, n); err != nil {
 			return err
 		}
-		return fmt.Errorf("unknown error, status code: %d, body: %s", res.StatusCode, string(bodyBytes))
-	} else if res.StatusCode == http.StatusNoContent {
-		return nil
 	}
+	return nil
+}
 
-	responseString, err := ioutil.ReadAll(res.Body)
+func (b *bootResource) uploadBuffer(ctx context.Context, uri string, fileBuf []byte, contentLength int) error {
+	res, err := b.client.Put(ctx, uri, b.params.Values(), bytes.NewReader(fileBuf), contentLength)
 	if err != nil {
 		return err
 	}
 
-	if strings.ToUpper(string(responseString)) != "OK" {
-		fmt.Println("expected output to be", string(responseString), res.StatusCode)
+	return unMarshalJson(res, nil)
+}
+
+func (b *bootResource) UnmarshalJSON(data []byte) error {
+	des := &struct {
+		Id           int            `json:"id"`
+		Type         string         `json:"type"`
+		Name         string         `json:"name"`
+		Architecture string         `json:"architecture"`
+		SubArches    string         `json:"subarches"`
+		Title        string         `json:"title"`
+		Sets         map[string]Set `json:"sets"`
+	}{}
+
+	err := json.Unmarshal(data, des)
+	if err != nil {
 		return err
 	}
+
+	b.id = des.Id
+	b.bootResourceType = des.Type
+	b.name = des.Name
+	b.architecture = des.Architecture
+	b.subarches = des.SubArches
+	b.title = des.Title
+	b.sets = des.Sets
 
 	return nil
 }
 
+func (b *bootResource) Delete(ctx context.Context) error {
+	res, err := b.client.Delete(ctx, b.apiPath, nil)
+	if err != nil {
+		return err
+	}
 
+	return unMarshalJson(res, &b)
+}
+
+func (b *bootResource) Get(ctx context.Context) error {
+	res, err := b.client.Get(ctx, b.apiPath, b.params.Values())
+	if err != nil {
+		return err
+	}
+
+	return unMarshalJson(res, &b)
+}
+
+func (b *bootResource) Type() string {
+	return b.bootResourceType
+}
+
+func (b *bootResource) Name() string {
+	return b.name
+}
+
+func (b *bootResource) Architecture() string {
+	return b.architecture
+}
+
+func (b *bootResource) SubArches() string {
+	return b.subarches
+}
+
+func (b *bootResource) Title() string {
+	return b.title
+}
+
+func (b *bootResource) Sets() map[string]Set {
+	return b.sets
+}
+
+func (b *bootResource) ID() int {
+	return b.id
+}
+
+func (b *bootResource) LatestSet() (*Set, error) {
+	if len(b.Sets()) == 0 {
+		return nil, errors.New("no set found in bootresource")
+	}
+
+	keys := make([]string, 0)
+	for key := range b.Sets() {
+		keys = append(keys, key)
+	}
+
+	sort.Strings(keys)
+	// return first element
+	set := b.Sets()[keys[0]]
+	return &set, nil
+}
 
 func writeMultiPartParams(writer *multipart.Writer, params url.Values) error {
 	for key, values := range params {
@@ -274,24 +341,14 @@ func writeMultiPartParams(writer *multipart.Writer, params url.Values) error {
 		}
 	}
 	return nil
-
 }
 
-func (c *Client) GetBootResource(ctx context.Context, id string) (*BootResource, error) {
-	q := url.Values{}
-	var res *BootResource
-	if err := c.send(ctx, http.MethodGet, fmt.Sprintf("/boot-resources/%s/", id), q, &res); err != nil {
-		return nil, err
+func NewBootResourcesClient(client Client) BootResources {
+	return &bootResources{
+		Controller: Controller{
+			client:  client,
+			apiPath: BootResourcesAPIPath,
+			params:  ParamsBuilder(),
+		},
 	}
-	return res, nil
 }
-
-func (c *Client) DeleteBootResource(ctx context.Context, id string) error {
-	q := url.Values{}
-	var res interface{}
-	if err := c.send(ctx, http.MethodDelete, fmt.Sprintf("/boot-resources/%s/", id), q, &res); err != nil {
-		return err
-	}
-	return nil
-}
-
