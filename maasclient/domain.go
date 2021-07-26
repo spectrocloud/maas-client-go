@@ -2,24 +2,135 @@ package maasclient
 
 import (
 	"context"
-	"net/http"
+	"encoding/json"
+	"fmt"
+	"time"
 )
 
-type Domain struct {
-	ResourceUri string `json:"resourceURI"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
+const (
+	DomainsAPIPath      = "/domains/"
+	DomainAPIPathFormat = "/domains/%d"
+)
+
+type Domains interface {
+	List(ctx context.Context) ([]Domain, error)
+	Domain(id int) Domain
 }
 
-func (c *Client) GetDomain() ([]Domain, error) {
+type Domain interface {
+	ID() int
+	IsAuthoritative() bool
+	TTL() time.Duration
+	IsDefault() bool
+	Name() string
+	ResourceRecordCount() int
+}
 
-	var domains []Domain
-	err := c.send(context.Background(), http.MethodGet, "/domains/", nil, &domains)
+type domains struct {
+	Controller
+}
 
+func (ds *domains) Domain(id int) Domain {
+	return domainStructToInterface(&domain{
+		id: id,
+	}, ds.client)
+}
+
+func (ds *domains) List(ctx context.Context) ([]Domain, error) {
+	res, err := ds.client.Get(ctx, ds.apiPath, ds.params.Values())
 	if err != nil {
 		return nil, err
 	}
-	return domains, nil
+
+	var obj []*domain
+	err = unMarshalJson(res, &obj)
+	if err != nil {
+		return nil, err
+	}
+
+	return domainStructSliceToInterface(obj, ds.client), nil
 }
 
+func domainStructSliceToInterface(in []*domain, client Client) []Domain {
+	var out []Domain
+	for _, d := range in {
+		out = append(out, domainStructToInterface(d, client))
+	}
+	return out
+}
 
+func domainStructToInterface(in *domain, client Client) Domain {
+	in.client = client
+	in.apiPath = fmt.Sprintf(DomainAPIPathFormat, in.id)
+	in.params = ParamsBuilder()
+	return in
+}
+
+type domain struct {
+	id                  int
+	isAuthoritative     bool
+	ttl                 int
+	isDefault           bool
+	name                string
+	resourceRecordCount int
+	Controller
+}
+
+func (d *domain) ID() int {
+	return d.id
+}
+
+func (d *domain) IsAuthoritative() bool {
+	return d.isAuthoritative
+}
+
+func (d *domain) TTL() time.Duration {
+	return time.Duration(d.ttl) * time.Second
+}
+
+func (d *domain) IsDefault() bool {
+	return d.isDefault
+}
+
+func (d *domain) Name() string {
+	return d.name
+}
+
+func (d *domain) ResourceRecordCount() int {
+	return d.resourceRecordCount
+}
+
+func (d *domain) UnmarshalJSON(data []byte) error {
+	des := &struct {
+		Authoritative       bool   `json:"authoritative"`
+		TTL                 int    `json:"ttl"`
+		ResourceRecordCount int    `json:"resource_record_count"`
+		Name                string `json:"name"`
+		Id                  int    `json:"id"`
+		IsDefault           bool   `json:"is_default"`
+	}{}
+
+	err := json.Unmarshal(data, des)
+	if err != nil {
+		return err
+	}
+
+	d.id = des.Id
+	d.name = des.Name
+	d.ttl = des.TTL
+	d.isAuthoritative = des.Authoritative
+	d.isDefault = des.IsDefault
+	d.resourceRecordCount = des.ResourceRecordCount
+
+	return nil
+}
+
+func NewDomainsClient(client *authenticatedClient) Domains {
+	return &domains{
+		Controller: Controller{
+			client:  client,
+			apiPath: DomainsAPIPath,
+			params:  ParamsBuilder(),
+		},
+	}
+}

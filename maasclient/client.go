@@ -3,210 +3,91 @@ package maasclient
 import (
 	"context"
 	"crypto/tls"
-	"encoding/json"
 	"fmt"
 	"github.com/spectrocloud/maas-client-go/maasclient/oauth1"
 	"io"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
 )
 
-// Client
-type Client struct {
+// authenticatedClient
+type authenticatedClient struct {
 	baseURL    string
-	HTTPClient *http.Client
+	httpClient *http.Client
 	apiKey     string
 }
 
-// NewClient creates new MaaS client with given API key
-func NewClient(maasEndpoint string, apiKey string) *Client {
-
-	tr := &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-		Proxy:           http.ProxyFromEnvironment,
-	}
-	httpClient := &http.Client{
-		Transport: tr,
-	}
-
-	return &Client{
-		apiKey:     apiKey,
-		HTTPClient: httpClient,
-		baseURL: fmt.Sprintf("%s/api/2.0", maasEndpoint),
-	}
+type HTTPResponse struct {
+	body   []byte
+	status int
 }
 
-// send sends the request
-// Content-type and body should be already added to req
-func (c *Client) send(ctx context.Context, method string, apiPath string, params url.Values, v interface{}) error {
-	var err error
-	var req *http.Request
-
-	if method == http.MethodGet {
-		req, err = http.NewRequestWithContext(
-			ctx,
-			method,
-			fmt.Sprintf("%s%s", c.baseURL, apiPath),
-			nil,
-		)
-		if err != nil {
-			return err
-		}
-
-		req.URL.RawQuery = params.Encode()
-	} else {
-		req, err = http.NewRequestWithContext(
-			ctx,
-			method,
-			fmt.Sprintf("%s%s", c.baseURL, apiPath),
-			strings.NewReader(params.Encode()),
-		)
-		if err != nil {
-			return err
-		}
-	}
-
-	return c.sendRequest(req, params, v)
+type Client interface {
+	Get(ctx context.Context, path string, params url.Values) (HTTPResponse, error)
+	PostForm(ctx context.Context, path string, contentType string, params url.Values, body io.Reader) (HTTPResponse, error)
+	Post(ctx context.Context, path string, params url.Values) (HTTPResponse, error)
+	Put(ctx context.Context, path string, params url.Values, body io.Reader, contentLength int) (HTTPResponse, error)
+	PutParams(ctx context.Context, param string, params url.Values) (HTTPResponse, error)
+	Delete(ctx context.Context, path string, params url.Values) (HTTPResponse, error)
 }
 
-
-func (c *Client) sendTextBodyResponse(ctx context.Context, method string, apiPath string, params url.Values, output *string) error {
-	var err error
-	var req *http.Request
-
-	if method == http.MethodGet {
-		req, err = http.NewRequestWithContext(
-			ctx,
-			method,
-			fmt.Sprintf("%s%s", c.baseURL, apiPath),
-			nil,
-		)
-		if err != nil {
-			return err
-		}
-
-		req.URL.RawQuery = params.Encode()
-	} else {
-		req, err = http.NewRequestWithContext(
-			ctx,
-			method,
-			fmt.Sprintf("%s%s", c.baseURL, apiPath),
-			strings.NewReader(params.Encode()),
-		)
-		if err != nil {
-			return err
-		}
-	}
-
-	return c.sendRequestTextBodyResponse(req, params, output)
-}
-
-
-// send sends the request
-// Content-type and body should be already added to req
-func (c *Client) sendRequestWithBody(ctx context.Context, method string, apiPath string, contenttype string, params url.Values, body io.Reader, v interface{}) error {
-
-	var err error
-	var req *http.Request
-
-	req, err = http.NewRequestWithContext(
+func (c *authenticatedClient) Get(ctx context.Context, path string, params url.Values) (HTTPResponse, error) {
+	result := HTTPResponse{}
+	req, err := http.NewRequestWithContext(
 		ctx,
-		method,
-		fmt.Sprintf("%s%s", c.baseURL, apiPath),
+		http.MethodGet,
+		fmt.Sprintf("%s%s", c.baseURL, path),
+		nil,
+	)
+	if err != nil {
+		return result, err
+	}
+	req.URL.RawQuery = params.Encode()
+
+	req.Header.Set("Accept", "application/json; charset=utf-8")
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Authorization", authHeader(req, params, c.apiKey))
+
+	return c.dispatchRequest(req, &result)
+}
+
+func (c *authenticatedClient) Post(ctx context.Context, path string, params url.Values) (HTTPResponse, error) {
+	result := HTTPResponse{}
+	req, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodPost,
+		fmt.Sprintf("%s%s", c.baseURL, path),
+		strings.NewReader(params.Encode()),
+	)
+	if err != nil {
+		return result, err
+	}
+
+	req.Header.Set("Accept", "application/json; charset=utf-8")
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	req.Header.Set("Authorization", authHeader(req, params, c.apiKey))
+
+	return c.dispatchRequest(req, &result)
+}
+
+func (c *authenticatedClient) PostForm(ctx context.Context, path string, contentType string, params url.Values, body io.Reader) (HTTPResponse, error) {
+	result := HTTPResponse{}
+	req, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodPost,
+		fmt.Sprintf("%s%s", c.baseURL, path),
 		body,
 	)
 	if err != nil {
-		return err
+		return result, err
 	}
 
-	return c.sendRequestUpload(req, params, contenttype, v)
-}
-
-func (c *Client) sendRequest(req *http.Request, params url.Values, v interface{}) error {
 	req.Header.Set("Accept", "application/json; charset=utf-8")
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-
-	req.Header.Set("Authorization", authHeader(req, params, c.apiKey))
-
-	res, err := c.HTTPClient.Do(req)
-	if err != nil {
-		return err
-	}
-
-	defer closeResponseBody(res)
-
-	// Try to unmarshall into errorResponse
-	if res.StatusCode != http.StatusOK && res.StatusCode != http.StatusNoContent {
-		bodyBytes, err := ioutil.ReadAll(res.Body)
-		if err != nil {
-			return err
-		}
-
-		return fmt.Errorf("unknown error, status code: %d, body: %s", res.StatusCode, string(bodyBytes))
-	} else if res.StatusCode == http.StatusNoContent {
-		return nil
-	}
-
-	if err = json.NewDecoder(res.Body).Decode(v); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-
-func (c *Client) sendRequestTextBodyResponse(req *http.Request, params url.Values, output *string) error {
-	req.Header.Set("Accept", "application/json; charset=utf-8")
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-
-	req.Header.Set("Authorization", authHeader(req, params, c.apiKey))
-
-	res, err := c.HTTPClient.Do(req)
-	if err != nil {
-		return err
-	}
-
-	defer closeResponseBody(res)
-
-	// Try to unmarshall into errorResponse
-	if res.StatusCode != http.StatusOK && res.StatusCode != http.StatusNoContent {
-		bodyBytes, err := ioutil.ReadAll(res.Body)
-		if err != nil {
-			return err
-		}
-
-		return fmt.Errorf("unknown error, status code: %d, body: %s", res.StatusCode, string(bodyBytes))
-	} else if res.StatusCode == http.StatusNoContent {
-		return nil
-	}
-
-	data, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		return err
-	}
-
-	*output = string(data)
-
-	return nil
-}
-
-
-func closeResponseBody(response *http.Response) {
-	err := response.Body.Close()
-	if err != nil {
-		log.Printf("Unable to close response body")
-	}
-}
-
-func (c *Client) sendRequestUpload(req *http.Request, params url.Values, contenttype string, v interface{}) error {
-	//func (c *Client) sendRequest(req *http.Request, urlValues *url.Values, v interface{}) error {
-	req.Header.Set("Accept", "application/json; charset=utf-8")
-	req.Header.Set("Content-Type", contenttype)
-
+	req.Header.Set("Content-Type", contentType)
 
 	// for post requests longer than 300 seconds
 	ticker := time.NewTicker(2 * time.Minute)
@@ -224,41 +105,178 @@ func (c *Client) sendRequestUpload(req *http.Request, params url.Values, content
 		}
 	}()
 
-
 	defer func() {
 		ticker.Stop()
 		done <- true
 	}()
 
-
 	authHeader := authHeader(req, params, c.apiKey)
 	req.Header.Set("Authorization", authHeader)
 
-	res, err := c.HTTPClient.Do(req)
+	return c.dispatchRequest(req, &result)
+}
+
+func (c *authenticatedClient) Put(ctx context.Context, path string, params url.Values, body io.Reader, contentLength int) (HTTPResponse, error) {
+	result := HTTPResponse{}
+	req, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodPut,
+		fmt.Sprintf("%s%s", c.baseURL, path),
+		body,
+	)
 	if err != nil {
-		return err
+		return result, err
+	}
+	req.Header.Set("Accept", "application/json; charset=utf-8")
+	req.Header.Set("Content-Type", "application/octet-stream")
+	req.Header.Set("Authorization", authHeader(req, params, c.apiKey))
+	req.ContentLength = int64(contentLength)
+
+	return c.dispatchRequest(req, &result)
+}
+
+func (c *authenticatedClient) PutParams(ctx context.Context, path string, params url.Values) (HTTPResponse, error) {
+	result := HTTPResponse{}
+	req, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodPut,
+		fmt.Sprintf("%s%s", c.baseURL, path),
+		strings.NewReader(params.Encode()),
+	)
+	if err != nil {
+		return result, err
+	}
+	req.Header.Set("Accept", "application/json; charset=utf-8")
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Authorization", authHeader(req, params, c.apiKey))
+
+	return c.dispatchRequest(req, &result)
+}
+
+func (c *authenticatedClient) Delete(ctx context.Context, path string, params url.Values) (HTTPResponse, error) {
+	result := HTTPResponse{}
+	req, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodDelete,
+		fmt.Sprintf("%s%s", c.baseURL, path),
+		strings.NewReader(params.Encode()),
+	)
+	if err != nil {
+		return result, err
+	}
+
+	req.Header.Set("Accept", "application/json; charset=utf-8")
+	req.Header.Set("Authorization", authHeader(req, params, c.apiKey))
+
+	return c.dispatchRequest(req, &result)
+}
+
+func (c *authenticatedClient) dispatchRequest(req *http.Request, result *HTTPResponse) (HTTPResponse, error) {
+	res, err := c.httpClient.Do(req)
+	if err != nil {
+		return *result, err
 	}
 
 	defer res.Body.Close()
 
-	//debugBody(res)
-
-	// Try to unmarshall into errorResponse
-	if res.StatusCode != http.StatusCreated && res.StatusCode != http.StatusOK {
-		bodyBytes, err := ioutil.ReadAll(res.Body)
-		if err != nil {
-			return err
-		}
-		return fmt.Errorf("unknown error, status code: %d, body: %s", res.StatusCode, string(bodyBytes))
-	} else if res.StatusCode == http.StatusNoContent {
-		return nil
+	bodyBytes, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return *result, err
 	}
 
-	if err = json.NewDecoder(res.Body).Decode(v); err != nil {
-		return err
+	result.body = bodyBytes
+	result.status = res.StatusCode
+
+	return *result, nil
+}
+
+type authenticatedClientSet struct {
+	client                 *authenticatedClient
+	rackControllers        RackControllers
+	dnsResouceController   DNSResources
+	userController         Users
+	zoneController         Zones
+	bootController         BootResources
+	domainController       Domains
+	resourcePoolController ResourcePools
+	spaceController        Spaces
+	machineController      Machines
+}
+
+func (m *authenticatedClientSet) RackControllers() RackControllers {
+	return m.rackControllers
+}
+
+func (m *authenticatedClientSet) DNSResources() DNSResources {
+	return m.dnsResouceController
+}
+
+func (m *authenticatedClientSet) Users() Users {
+	return m.userController
+}
+
+func (m *authenticatedClientSet) Zones() Zones {
+	return m.zoneController
+}
+
+func (m *authenticatedClientSet) BootResources() BootResources {
+	return m.bootController
+}
+
+func (m *authenticatedClientSet) Domains() Domains {
+	return m.domainController
+}
+
+func (m *authenticatedClientSet) ResourcePools() ResourcePools {
+	return m.resourcePoolController
+}
+
+func (m *authenticatedClientSet) Spaces() Spaces {
+	return m.spaceController
+}
+
+func (m *authenticatedClientSet) Machines() Machines {
+	return m.machineController
+}
+
+func NewAuthenticatedClientSet(maasEndpoint, apiKey string, options ...func(client *authenticatedClientSet)) ClientSetInterface {
+	transport := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		Proxy:           http.ProxyFromEnvironment,
 	}
 
-	return nil
+	httpClient := &http.Client{Transport: transport}
+
+	client := &authenticatedClient{
+		apiKey:     apiKey,
+		httpClient: httpClient,
+		baseURL:    fmt.Sprintf("%s/api/2.0", maasEndpoint),
+	}
+
+	clientSet := &authenticatedClientSet{
+		client: client,
+	}
+
+	for _, option := range options {
+		option(clientSet)
+	}
+
+	clientSet.rackControllers = NewRackControllersClient(client)
+	clientSet.dnsResouceController = NewDNSResourcesClient(client)
+	clientSet.userController = NewUsersClient(client)
+	clientSet.zoneController = NewZonesClient(client)
+	clientSet.bootController = NewBootResourcesClient(client)
+	clientSet.domainController = NewDomainsClient(client)
+	clientSet.resourcePoolController = NewResourcePoolsClient(client)
+	clientSet.spaceController = NewSpacesClient(client)
+	clientSet.machineController = NewMachinesClient(client)
+
+	return clientSet
+}
+
+func (m *authenticatedClientSet) WithHTTPClient(client *http.Client) ClientSetInterface {
+	m.client.httpClient = client
+	return m
 }
 
 func authHeader(req *http.Request, queryParams url.Values, apiKey string) string {
