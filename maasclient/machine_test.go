@@ -43,8 +43,6 @@ func TestClient_GetMachine(t *testing.T) {
 }
 
 func TestClient_AllocateMachine(t *testing.T) {
-	os.Setenv("MAAS_ENDPOINT", "http://10.11.130.10:5240/MAAS")
-	os.Setenv("MAAS_API_KEY", "HZS7dZduQg7dkNS8rW:8dWF4jrwm4fs7QDmpv:RjZDaatpcpeN6MuRsr7Kp4Ezgtd8gUmz")
 	c := NewAuthenticatedClientSet(os.Getenv("MAAS_ENDPOINT"), os.Getenv("MAAS_API_KEY"))
 
 	ctx := context.Background()
@@ -91,8 +89,6 @@ func TestClient_AllocateMachine(t *testing.T) {
 }
 
 func TestClient_DeployMachine(t *testing.T) {
-	os.Setenv("MAAS_ENDPOINT", "http://10.11.130.10:5240/MAAS")
-	os.Setenv("MAAS_API_KEY", "HZS7dZduQg7dkNS8rW:8dWF4jrwm4fs7QDmpv:RjZDaatpcpeN6MuRsr7Kp4Ezgtd8gUmz")
 	c := NewAuthenticatedClientSet(os.Getenv("MAAS_ENDPOINT"), os.Getenv("MAAS_API_KEY"))
 
 	ctx := context.Background()
@@ -132,8 +128,6 @@ func TestClient_DeployMachine(t *testing.T) {
 }
 
 func TestClient_UpdateMachine(t *testing.T) {
-	os.Setenv("MAAS_ENDPOINT", "http://10.11.130.10:5240/MAAS")
-	os.Setenv("MAAS_API_KEY", "HZS7dZduQg7dkNS8rW:8dWF4jrwm4fs7QDmpv:RjZDaatpcpeN6MuRsr7Kp4Ezgtd8gUmz")
 	c := NewAuthenticatedClientSet(os.Getenv("MAAS_ENDPOINT"), os.Getenv("MAAS_API_KEY"))
 
 	res, err := c.Machines().Machine("e37xxm").
