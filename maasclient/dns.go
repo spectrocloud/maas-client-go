@@ -51,7 +51,7 @@ type DNSResourceModifier interface {
 	SetIPAddresses(address []string) DNSResourceModifier
 	SetName(name string) DNSResourceModifier
 	SetDomain(name string) DNSResourceModifier
-	Modify(ctx context.Context) error
+	Modify(ctx context.Context) (DNSResource, error)
 }
 
 type DNSResourceBuilder interface {
@@ -78,7 +78,7 @@ func (d *dnsResource) Get(ctx context.Context) error {
 		return err
 	}
 
-	return unMarshalJson(res, d)
+	return unMarshalJson(res, &d)
 }
 
 func (d *dnsResource) Delete(ctx context.Context) error {
@@ -87,7 +87,7 @@ func (d *dnsResource) Delete(ctx context.Context) error {
 		return err
 	}
 
-	return unMarshalJson(data, nil)
+	return unMarshalJson(data, &d)
 }
 
 func (d *dnsResource) Modifier() DNSResourceModifier {
@@ -120,14 +120,14 @@ func (d *dnsResource) SetDomain(domain string) DNSResourceModifier {
 	return d
 }
 
-func (d *dnsResource) Modify(ctx context.Context) error {
+func (d *dnsResource) Modify(ctx context.Context) (DNSResource, error) {
 	d.params.Set(IDKey, strconv.Itoa(d.ID()))
 	data, err := d.client.PutParams(ctx, d.apiPath, d.params.Values())
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return unMarshalJson(data, d)
+	return d, unMarshalJson(data, &d)
 }
 
 func (d *dnsResource) ID() int {
@@ -175,6 +175,7 @@ type dnsResources struct {
 
 func (r *dnsResources) DNSResource(id int) DNSResource {
 	d := &dnsResource{}
+	d.id = id
 	return dnsResourceStructToInterface(d, r.client)
 }
 

@@ -37,7 +37,6 @@ type Machine interface {
 	Releaser() MachineReleaser
 	Modifier() MachineModifier
 	Deployer() MachineDeployer
-	Deploy(ctx context.Context) error
 	SystemID() string
 	FQDN() string
 	Zone() Zone
@@ -51,7 +50,7 @@ type Machine interface {
 }
 
 type MachineReleaser interface {
-	Release(ctx context.Context) error
+	Release(ctx context.Context) (Machine, error)
 	WithErase() MachineReleaser
 	WithQuickErase() MachineReleaser
 	WithSecureErase() MachineReleaser
@@ -79,7 +78,7 @@ type MachineDeployer interface {
 	SetOSSystem(ossytem string) MachineDeployer
 	SetUserData(userdata string) MachineDeployer
 	SetDistroSeries(distroseries string) MachineDeployer
-	Deploy(ctx context.Context) error
+	Deploy(ctx context.Context) (Machine, error)
 }
 
 type machines struct {
@@ -206,13 +205,13 @@ func (m *machine) SetDistroSeries(distroseries string) MachineDeployer {
 	return m
 }
 
-func (m *machine) Deploy(ctx context.Context) error {
+func (m *machine) Deploy(ctx context.Context) (Machine, error) {
 	res, err := m.client.Post(ctx, m.apiPath, m.params.Values())
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return unMarshalJson(res, &m)
+	return nil, unMarshalJson(res, &m)
 }
 
 func (m *machine) Deployer() MachineDeployer {
@@ -299,13 +298,13 @@ func (m *machine) Delete(ctx context.Context) error {
 	return unMarshalJson(res, nil)
 }
 
-func (m *machine) Release(ctx context.Context) error {
+func (m *machine) Release(ctx context.Context) (Machine, error) {
 	res, err := m.client.Post(ctx, m.apiPath, m.params.Values())
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return unMarshalJson(res, &m)
+	return m, unMarshalJson(res, &m)
 }
 
 func (m *machine) SystemID() string {

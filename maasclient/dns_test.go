@@ -91,7 +91,7 @@ func TestGetDNSResources(t *testing.T) {
 		assert.Equal(t, res.AddressTTL(), 10)
 		assert.Empty(t, res.IPAddresses())
 
-		err = res.Modifier().
+		res, err = res.Modifier().
 			SetIPAddresses([]string{"1.2.3.4", "5.6.7.8"}).
 			Modify(ctx)
 		if err != nil {

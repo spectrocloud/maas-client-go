@@ -65,7 +65,7 @@ func TestClient_AllocateMachine(t *testing.T) {
 
 	releaseMachine := func(res Machine) {
 		if res != nil {
-			err := res.Releaser().
+			_, err := res.Releaser().
 				WithComment("releaseaan").
 				Release(ctx)
 			assert.Nil(t, err)
@@ -111,7 +111,7 @@ func TestClient_DeployMachine(t *testing.T) {
 
 	releaseMachine := func(res Machine) {
 		if res != nil {
-			err := res.Releaser().
+			_, err := res.Releaser().
 				WithComment("releaseaan a").
 				Release(ctx)
 			assert.Nil(t, err)
@@ -126,7 +126,7 @@ func TestClient_DeployMachine(t *testing.T) {
 		assert.NotNil(t, res)
 		assert.NotEmpty(t, res.SystemID())
 
-		err = res.Deployer().
+		_, err = res.Deployer().
 			SetOSSystem("custom").
 			SetDistroSeries("u-1804-0-k-11912-0").Deploy(ctx)
 		assert.Nil(t, err, "expecting nil error")
