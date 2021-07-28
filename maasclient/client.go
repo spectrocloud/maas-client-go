@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"github.com/spectrocloud/maas-client-go/maasclient/oauth1"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strings"
@@ -36,22 +35,17 @@ type authenticatedClient struct {
 	apiKey     string
 }
 
-type HTTPResponse struct {
-	body   []byte
-	status int
-}
 
 type Client interface {
-	Get(ctx context.Context, path string, params url.Values) (HTTPResponse, error)
-	PostForm(ctx context.Context, path string, contentType string, params url.Values, body io.Reader) (HTTPResponse, error)
-	Post(ctx context.Context, path string, params url.Values) (HTTPResponse, error)
-	Put(ctx context.Context, path string, params url.Values, body io.Reader, contentLength int) (HTTPResponse, error)
-	PutParams(ctx context.Context, param string, params url.Values) (HTTPResponse, error)
-	Delete(ctx context.Context, path string, params url.Values) (HTTPResponse, error)
+	Get(ctx context.Context, path string, params url.Values) (*http.Response, error)
+	PostForm(ctx context.Context, path string, contentType string, params url.Values, body io.Reader) (*http.Response, error)
+	Post(ctx context.Context, path string, params url.Values) (*http.Response, error)
+	Put(ctx context.Context, path string, params url.Values, body io.Reader, contentLength int) (*http.Response, error)
+	PutParams(ctx context.Context, param string, params url.Values) (*http.Response, error)
+	Delete(ctx context.Context, path string, params url.Values) (*http.Response, error)
 }
 
-func (c *authenticatedClient) Get(ctx context.Context, path string, params url.Values) (HTTPResponse, error) {
-	result := HTTPResponse{}
+func (c *authenticatedClient) Get(ctx context.Context, path string, params url.Values) (*http.Response, error) {
 	req, err := http.NewRequestWithContext(
 		ctx,
 		http.MethodGet,
@@ -59,7 +53,7 @@ func (c *authenticatedClient) Get(ctx context.Context, path string, params url.V
 		nil,
 	)
 	if err != nil {
-		return result, err
+		return nil, err
 	}
 	req.URL.RawQuery = params.Encode()
 
@@ -67,11 +61,10 @@ func (c *authenticatedClient) Get(ctx context.Context, path string, params url.V
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Authorization", authHeader(req, params, c.apiKey))
 
-	return c.dispatchRequest(req, &result)
+	return c.dispatchRequest(req)
 }
 
-func (c *authenticatedClient) Post(ctx context.Context, path string, params url.Values) (HTTPResponse, error) {
-	result := HTTPResponse{}
+func (c *authenticatedClient) Post(ctx context.Context, path string, params url.Values) (*http.Response, error) {
 	req, err := http.NewRequestWithContext(
 		ctx,
 		http.MethodPost,
@@ -79,7 +72,7 @@ func (c *authenticatedClient) Post(ctx context.Context, path string, params url.
 		strings.NewReader(params.Encode()),
 	)
 	if err != nil {
-		return result, err
+		return nil, err
 	}
 
 	req.Header.Set("Accept", "application/json; charset=utf-8")
@@ -87,11 +80,10 @@ func (c *authenticatedClient) Post(ctx context.Context, path string, params url.
 
 	req.Header.Set("Authorization", authHeader(req, params, c.apiKey))
 
-	return c.dispatchRequest(req, &result)
+	return c.dispatchRequest(req)
 }
 
-func (c *authenticatedClient) PostForm(ctx context.Context, path string, contentType string, params url.Values, body io.Reader) (HTTPResponse, error) {
-	result := HTTPResponse{}
+func (c *authenticatedClient) PostForm(ctx context.Context, path string, contentType string, params url.Values, body io.Reader) (*http.Response, error) {
 	req, err := http.NewRequestWithContext(
 		ctx,
 		http.MethodPost,
@@ -99,7 +91,7 @@ func (c *authenticatedClient) PostForm(ctx context.Context, path string, content
 		body,
 	)
 	if err != nil {
-		return result, err
+		return nil, err
 	}
 
 	req.Header.Set("Accept", "application/json; charset=utf-8")
@@ -129,11 +121,10 @@ func (c *authenticatedClient) PostForm(ctx context.Context, path string, content
 	authHeader := authHeader(req, params, c.apiKey)
 	req.Header.Set("Authorization", authHeader)
 
-	return c.dispatchRequest(req, &result)
+	return c.dispatchRequest(req)
 }
 
-func (c *authenticatedClient) Put(ctx context.Context, path string, params url.Values, body io.Reader, contentLength int) (HTTPResponse, error) {
-	result := HTTPResponse{}
+func (c *authenticatedClient) Put(ctx context.Context, path string, params url.Values, body io.Reader, contentLength int) (*http.Response, error) {
 	req, err := http.NewRequestWithContext(
 		ctx,
 		http.MethodPut,
@@ -141,18 +132,17 @@ func (c *authenticatedClient) Put(ctx context.Context, path string, params url.V
 		body,
 	)
 	if err != nil {
-		return result, err
+		return nil, err
 	}
 	req.Header.Set("Accept", "application/json; charset=utf-8")
 	req.Header.Set("Content-Type", "application/octet-stream")
 	req.Header.Set("Authorization", authHeader(req, params, c.apiKey))
 	req.ContentLength = int64(contentLength)
 
-	return c.dispatchRequest(req, &result)
+	return c.dispatchRequest(req)
 }
 
-func (c *authenticatedClient) PutParams(ctx context.Context, path string, params url.Values) (HTTPResponse, error) {
-	result := HTTPResponse{}
+func (c *authenticatedClient) PutParams(ctx context.Context, path string, params url.Values) (*http.Response, error) {
 	req, err := http.NewRequestWithContext(
 		ctx,
 		http.MethodPut,
@@ -160,17 +150,16 @@ func (c *authenticatedClient) PutParams(ctx context.Context, path string, params
 		strings.NewReader(params.Encode()),
 	)
 	if err != nil {
-		return result, err
+		return nil, err
 	}
 	req.Header.Set("Accept", "application/json; charset=utf-8")
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Authorization", authHeader(req, params, c.apiKey))
 
-	return c.dispatchRequest(req, &result)
+	return c.dispatchRequest(req)
 }
 
-func (c *authenticatedClient) Delete(ctx context.Context, path string, params url.Values) (HTTPResponse, error) {
-	result := HTTPResponse{}
+func (c *authenticatedClient) Delete(ctx context.Context, path string, params url.Values) (*http.Response, error) {
 	req, err := http.NewRequestWithContext(
 		ctx,
 		http.MethodDelete,
@@ -178,32 +167,17 @@ func (c *authenticatedClient) Delete(ctx context.Context, path string, params ur
 		strings.NewReader(params.Encode()),
 	)
 	if err != nil {
-		return result, err
+		return nil, err
 	}
 
 	req.Header.Set("Accept", "application/json; charset=utf-8")
 	req.Header.Set("Authorization", authHeader(req, params, c.apiKey))
 
-	return c.dispatchRequest(req, &result)
+	return c.dispatchRequest(req)
 }
 
-func (c *authenticatedClient) dispatchRequest(req *http.Request, result *HTTPResponse) (HTTPResponse, error) {
-	res, err := c.httpClient.Do(req)
-	if err != nil {
-		return *result, err
-	}
-
-	defer res.Body.Close()
-
-	bodyBytes, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		return *result, err
-	}
-
-	result.body = bodyBytes
-	result.status = res.StatusCode
-
-	return *result, nil
+func (c *authenticatedClient) dispatchRequest(req *http.Request) (*http.Response, error) {
+	return c.httpClient.Do(req)
 }
 
 type authenticatedClientSet struct {

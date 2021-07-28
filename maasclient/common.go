@@ -19,6 +19,7 @@ package maasclient
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 )
 
@@ -28,19 +29,26 @@ type Controller struct {
 	params  Params
 }
 
-func unMarshalJson(data HTTPResponse, v interface{}) error {
+func unMarshalJson(res *http.Response, v interface{}) error {
+	defer res.Body.Close()
+
+	bodyBytes, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return err
+	}
+
 	switch {
-	case statusAcceptable(data.status):
+	case statusAcceptable(res.StatusCode):
 		// responses are either string
 		// or properly formatted json
 		if v != nil {
-			json.Unmarshal(data.body, v)
+			json.Unmarshal(bodyBytes, v)
 		}
 		return nil
-	case data.status >= 300:
-		return fmt.Errorf("status: %d, message: %s", data.status, data.body)
+	case res.StatusCode >= 300:
+		return fmt.Errorf("status: %d, message: %s", res.StatusCode, bodyBytes)
 	}
-	return fmt.Errorf("status: %d, message: %s", data.status, data.body)
+	return fmt.Errorf("status: %d, message: %s", res.StatusCode, bodyBytes)
 }
 
 func statusAcceptable(status int) bool {
