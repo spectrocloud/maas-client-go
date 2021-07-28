@@ -47,7 +47,7 @@ type BootResources interface {
 
 type BootResource interface {
 	BootResourceUploader
-	Get(ctx context.Context) error
+	Get(ctx context.Context) (BootResource, error)
 	Delete(ctx context.Context) error
 	ID() int
 	Type() string
@@ -292,13 +292,13 @@ func (b *bootResource) Delete(ctx context.Context) error {
 	return unMarshalJson(res, &b)
 }
 
-func (b *bootResource) Get(ctx context.Context) error {
+func (b *bootResource) Get(ctx context.Context) (BootResource, error) {
 	res, err := b.client.Get(ctx, b.apiPath, b.params.Values())
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return unMarshalJson(res, &b)
+	return b, unMarshalJson(res, &b)
 }
 
 func (b *bootResource) Type() string {

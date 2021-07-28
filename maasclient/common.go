@@ -42,9 +42,9 @@ func unMarshalJson(res *http.Response, v interface{}) error {
 	// cases where response in json caller can send nil and avoid unmarshalling overall
 	// for > 300 errors we return the body as it is
 	switch {
+	case res.StatusCode == http.StatusNoContent:
+		return nil
 	case statusAcceptable(res.StatusCode):
-		// responses are either string
-		// or properly formatted json
 		if v != nil {
 			return json.Unmarshal(bodyBytes, v)
 		}
@@ -58,6 +58,5 @@ func unMarshalJson(res *http.Response, v interface{}) error {
 func statusAcceptable(status int) bool {
 	return status == http.StatusOK ||
 		status == http.StatusCreated ||
-		status == http.StatusAccepted ||
-		status == http.StatusNoContent
+		status == http.StatusAccepted
 }

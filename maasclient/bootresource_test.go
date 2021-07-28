@@ -35,14 +35,12 @@ func TestGetBootResources(t *testing.T) {
 	})
 	//
 	t.Run("list-by-id", func(t *testing.T) {
-		res := c.BootResources().BootResource(7)
-		err := res.Get(ctx)
+		res, err := c.BootResources().BootResource(7).Get(ctx)
 		assert.Nil(t, err)
 		assert.NotNil(t, res)
 	})
 
 	t.Run("import image", func(t *testing.T) {
-
 		res, err := c.BootResources().Builder("test-image",
 			"amd64/generic",
 			"e9844638c7345d182c5d88e1eaeae74749d02beeca38587a530207fddc0a280a",

@@ -38,7 +38,7 @@ type DNSResources interface {
 type DNSResource interface {
 	Delete(ctx context.Context) error
 	Modifier() DNSResourceModifier
-	Get(ctx context.Context) error
+	Get(ctx context.Context) (DNSResource, error)
 	ID() int
 	FQDN() string
 	AddressTTL() int
@@ -72,13 +72,13 @@ type dnsResource struct {
 	Controller
 }
 
-func (d *dnsResource) Get(ctx context.Context) error {
+func (d *dnsResource) Get(ctx context.Context) (DNSResource, error) {
 	res, err := d.client.Get(ctx, d.apiPath, d.params.Values())
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return unMarshalJson(res, &d)
+	return d, unMarshalJson(res, &d)
 }
 
 func (d *dnsResource) Delete(ctx context.Context) error {

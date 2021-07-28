@@ -101,8 +101,7 @@ func TestGetDNSResources(t *testing.T) {
 		assert.Equal(t, res.AddressTTL(), 10)
 		assert.NotEmpty(t, res.IPAddresses())
 
-		res2 := c.DNSResources().DNSResource(res.ID())
-		err = res2.Get(ctx)
+		res2, err := c.DNSResources().DNSResource(res.ID()).Get(ctx)
 		assert.Nil(t, err)
 		assert.True(t, len(res2.IPAddresses()) == 2)
 

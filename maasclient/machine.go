@@ -32,7 +32,7 @@ type Machines interface {
 }
 
 type Machine interface {
-	Get(ctx context.Context) error
+	Get(ctx context.Context) (Machine, error)
 	Delete(ctx context.Context) error
 	Releaser() MachineReleaser
 	Modifier() MachineModifier
@@ -280,13 +280,13 @@ func (m *machine) Releaser() MachineReleaser {
 	return m
 }
 
-func (m *machine) Get(ctx context.Context) error {
+func (m *machine) Get(ctx context.Context) (Machine, error) {
 	res, err := m.client.Get(ctx, m.apiPath, m.params.Values())
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return unMarshalJson(res, &m)
+	return m, unMarshalJson(res, &m)
 }
 
 func (m *machine) Delete(ctx context.Context) error {

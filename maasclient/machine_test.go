@@ -36,7 +36,7 @@ func TestClient_GetMachine(t *testing.T) {
 
 	ctx := context.Background()
 	res := c.Machines().Machine("e37xxm")
-	err := res.Get(ctx)
+	_, err := res.Get(ctx)
 	//.machine(ctx, "e37xxm")
 
 	assert.Nil(t, err, "expecting nil error")
