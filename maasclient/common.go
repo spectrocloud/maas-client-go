@@ -39,15 +39,14 @@ func unMarshalJson(res *http.Response, v interface{}) error {
 
 
 	// 200 json body unmarshal ok
-	// 204 string string is valid json "random string" but unmarshal will fail
-	// such cases caller can send nil and avoid unmarshalling overall
+	// cases where response in json caller can send nil and avoid unmarshalling overall
 	// for > 300 errors we return the body as it is
 	switch {
 	case statusAcceptable(res.StatusCode):
 		// responses are either string
 		// or properly formatted json
 		if v != nil {
-			json.Unmarshal(bodyBytes, v)
+			return json.Unmarshal(bodyBytes, v)
 		}
 		return nil
 	case res.StatusCode >= 300:
