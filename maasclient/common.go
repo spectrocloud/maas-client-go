@@ -1,5 +1,5 @@
 /*
-Copyright 2021 Spectrocloud
+Copyright 2021 Spectro Cloud
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -37,6 +37,11 @@ func unMarshalJson(res *http.Response, v interface{}) error {
 		return err
 	}
 
+
+	// 200 json body unmarshal ok
+	// 204 string string is valid json "random string" but unmarshal will fail
+	// such cases caller can send nil and avoid unmarshalling overall
+	// for > 300 errors we return the body as it is
 	switch {
 	case statusAcceptable(res.StatusCode):
 		// responses are either string
