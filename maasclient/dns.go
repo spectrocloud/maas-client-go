@@ -1,97 +1,270 @@
+/*
+Copyright 2021 Spectro Cloud
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package maasclient
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
-	"net/http"
-	"net/url"
+	"strconv"
 	"strings"
 )
 
+const (
+	DNSResourcesAPIPath  = "/dnsresources/"
+	DNSResourceAPIFormat = "/dnsresources/%d/"
+)
+
+type DNSResources interface {
+	List(ctx context.Context, params Params) ([]DNSResource, error)
+	Builder() DNSResourceBuilder
+	DNSResource(id int) DNSResource
+}
+
+type DNSResource interface {
+	Delete(ctx context.Context) error
+	Modifier() DNSResourceModifier
+	Get(ctx context.Context) (DNSResource, error)
+	ID() int
+	FQDN() string
+	AddressTTL() int
+	IPAddresses() []IPAddress
+}
+
+type DNSResourceModifier interface {
+	SetFQDN(fqdn string) DNSResourceModifier
+	SetAddressTTL(addressTTL int) DNSResourceModifier
+	SetIPAddresses(address []string) DNSResourceModifier
+	SetName(name string) DNSResourceModifier
+	SetDomain(name string) DNSResourceModifier
+	Modify(ctx context.Context) (DNSResource, error)
+}
+
+type DNSResourceBuilder interface {
+	WithFQDN(fqdn string) DNSResourceBuilder
+	WithDomain(domain string) DNSResourceBuilder
+	WithName(name string) DNSResourceBuilder
+	WithAddressTTL(addressTTL string) DNSResourceBuilder
+	WithIPAddresses(ipAddresses []string) DNSResourceBuilder
+	Create(ctx context.Context) (DNSResource, error)
+}
+
 // DNSResource
-type DNSResource struct {
-	ID          int          `json:"id"`
-	FQDN        string       `json:"fqdn"`
-	AddressTTL  *int         `json:"address_ttl"`
-	IpAddresses []*IpAddress `json:"ip_addresses"`
+type dnsResource struct {
+	id          int
+	fqdn        string
+	addressTTL  *int
+	ipAddresses []*ipaddress
+	Controller
 }
 
-type IpAddress struct {
-	IpAddress string `json:"ip"`
-	//Interfaces []*Interface `json:"interface_set"`
-}
-
-//type Interface struct {
-//	SystemID string `json:"system_id"`
-//}
-
-type GetDNSResourcesOptions struct {
-	FQDN *string
-}
-
-func (c *Client) GetDNSResources(ctx context.Context, options *GetDNSResourcesOptions) ([]*DNSResource, error) {
-
-	q := url.Values{}
-	if options != nil {
-		addParam(q, "fqdn", options.FQDN)
-	}
-
-	var res []*DNSResource
-	if err := c.send(ctx, http.MethodGet, "/dnsresources/", q, &res); err != nil {
+func (d *dnsResource) Get(ctx context.Context) (DNSResource, error) {
+	res, err := d.client.Get(ctx, d.apiPath, d.params.Values())
+	if err != nil {
 		return nil, err
 	}
 
-	return res, nil
+	return d, unMarshalJson(res, &d)
 }
 
-type CreateDNSResourcesOptions struct {
-	FQDN        string
-	AddressTTL  string
-	IpAddresses []string
-}
-
-func (c *Client) CreateDNSResources(ctx context.Context, options CreateDNSResourcesOptions) (*DNSResource, error) {
-
-	q := url.Values{}
-	q.Add("fqdn", options.FQDN)
-	q.Add("address_ttl", options.AddressTTL)
-	q.Add("ip_addresses", strings.Join(options.IpAddresses, " "))
-
-	res := new(DNSResource)
-	if err := c.send(ctx, http.MethodPost, "/dnsresources/", q, res); err != nil {
-		return nil, err
-	}
-
-	return res, nil
-}
-
-func (c *Client) DeleteDNSResources(ctx context.Context, id int) error {
-
-	//q := url.Values{}
-	//q.Add("id", strconv.Itoa(id))
-
-	//res := new(DNSResource)
-	if err := c.send(ctx, http.MethodDelete, fmt.Sprintf("/dnsresources/%v/", id), nil, nil); err != nil {
+func (d *dnsResource) Delete(ctx context.Context) error {
+	data, err := d.client.Delete(ctx, d.apiPath, nil)
+	if err != nil {
 		return err
 	}
+
+	return unMarshalJson(data, &d)
+}
+
+func (d *dnsResource) Modifier() DNSResourceModifier {
+	d.params.Reset()
+	return d
+}
+
+func (d *dnsResource) SetFQDN(fqdn string) DNSResourceModifier {
+	d.params.Add(FQDNKey, fqdn)
+	return d
+}
+
+func (d *dnsResource) SetAddressTTL(addressTTL int) DNSResourceModifier {
+	d.params.Add(AddressTTLKey, strconv.Itoa(addressTTL))
+	return d
+}
+
+func (d *dnsResource) SetIPAddresses(address []string) DNSResourceModifier {
+	d.params.Add(IPAddressesKey, strings.Join(address, " "))
+	return d
+}
+
+func (d *dnsResource) SetName(name string) DNSResourceModifier {
+	d.params.Add(NameKey, name)
+	return d
+}
+
+func (d *dnsResource) SetDomain(domain string) DNSResourceModifier {
+	d.params.Add(DomainKey, domain)
+	return d
+}
+
+func (d *dnsResource) Modify(ctx context.Context) (DNSResource, error) {
+	d.params.Set(IDKey, strconv.Itoa(d.ID()))
+	data, err := d.client.PutParams(ctx, d.apiPath, d.params.Values())
+	if err != nil {
+		return nil, err
+	}
+
+	return d, unMarshalJson(data, &d)
+}
+
+func (d *dnsResource) ID() int {
+	return d.id
+}
+
+func (d *dnsResource) FQDN() string {
+	return d.fqdn
+}
+
+func (d *dnsResource) AddressTTL() int {
+	return *d.addressTTL
+}
+
+func (d *dnsResource) IPAddresses() []IPAddress {
+	return ipStructSliceToInterface(d.ipAddresses, d.client)
+}
+
+func (d *dnsResource) UnmarshalJSON(data []byte) error {
+	des := &struct {
+		Id          int          `json:"id"`
+		Fqdn        string       `json:"fqdn"`
+		AddressTTL  *int         `json:"address_ttl"`
+		IpAddresses []*ipaddress `json:"ip_addresses"`
+	}{}
+
+	err := json.Unmarshal(data, des)
+	if err != nil {
+		return err
+	}
+
+	d.id = des.Id
+	d.fqdn = des.Fqdn
+	d.addressTTL = des.AddressTTL
+	d.ipAddresses = des.IpAddresses
 
 	return nil
 }
 
-type UpdateDNSResourcesOptions struct {
-	ID          int
-	IpAddresses []string
+type dnsResources struct {
+	client  *authenticatedClient
+	apiPath string
+	params  Params
 }
 
-func (c *Client) UpdateDNSResources(ctx context.Context, options UpdateDNSResourcesOptions) (*DNSResource, error) {
+func (r *dnsResources) DNSResource(id int) DNSResource {
+	d := &dnsResource{}
+	d.id = id
+	return dnsResourceStructToInterface(d, r.client)
+}
 
-	q := url.Values{}
-	q.Add("ip_addresses", strings.Join(options.IpAddresses, " "))
+func (r *dnsResources) WithDomain(domain string) DNSResourceBuilder {
+	r.params.Set(DomainKey, domain)
+	return r
+}
 
-	res := new(DNSResource)
-	if err := c.send(ctx, http.MethodPut, fmt.Sprintf("/dnsresources/%v/", options.ID), q, res); err != nil {
+func (r *dnsResources) WithName(name string) DNSResourceBuilder {
+	r.params.Set(NameKey, name)
+	return r
+}
+
+func (r *dnsResources) WithFQDN(fqdn string) DNSResourceBuilder {
+	r.params.Add(FQDNKey, fqdn)
+
+	return r
+}
+
+func (r *dnsResources) WithAddressTTL(addressTTL string) DNSResourceBuilder {
+	r.params.Add(AddressTTLKey, addressTTL)
+	return r
+}
+
+func (r *dnsResources) WithIPAddresses(ipAddresses []string) DNSResourceBuilder {
+	r.params.Add(IPAddressesKey, strings.Join(ipAddresses, " "))
+	return r
+}
+
+func (r *dnsResources) Create(ctx context.Context) (DNSResource, error) {
+	data, err := r.client.Post(ctx, r.apiPath, r.params.Values())
+	if err != nil {
 		return nil, err
 	}
 
-	return res, nil
+	var obj *dnsResource
+	err = unMarshalJson(data, &obj)
+	if err != nil {
+		return nil, err
+	}
+
+	return dnsResourceStructToInterface(obj, r.client), nil
+}
+
+func (r *dnsResources) List(ctx context.Context, params Params) ([]DNSResource, error) {
+	if params == nil {
+		params = ParamsBuilder()
+		params.Set(AllKey, strconv.FormatBool(true))
+	}
+
+	data, err := r.client.Get(ctx, r.apiPath, params.Values())
+	if err != nil {
+		return nil, err
+	}
+
+	var obj []*dnsResource
+	err = unMarshalJson(data, &obj)
+	if err != nil {
+		return nil, err
+	}
+
+	return dnsResourceSliceToInterfaceSlice(obj, r.client), nil
+}
+
+func dnsResourceSliceToInterfaceSlice(d []*dnsResource, client Client) []DNSResource {
+	var result []DNSResource
+	for _, dr := range d {
+		result = append(result, dnsResourceStructToInterface(dr, client))
+	}
+
+	return result
+}
+
+func dnsResourceStructToInterface(d *dnsResource, client Client) DNSResource {
+	d.client = client
+	d.apiPath = fmt.Sprintf(DNSResourceAPIFormat, d.id)
+	d.params = ParamsBuilder()
+	return d
+}
+
+func (r *dnsResources) Builder() DNSResourceBuilder {
+	r.params.Reset()
+	return r
+}
+
+func NewDNSResourcesClient(client *authenticatedClient) DNSResources {
+	return &dnsResources{
+		client:  client,
+		params:  ParamsBuilder(),
+		apiPath: DNSResourcesAPIPath,
+	}
 }
