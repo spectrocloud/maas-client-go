@@ -55,7 +55,9 @@ func (auth OAuth) BuildOAuthHeader(method, path string, params map[string]string
 
 	var authHeader []string
 	for key := range vals {
-		authHeader = append(authHeader, fmt.Sprintf(`%s="%s"`, key, url.QueryEscape(vals.Get(key))))
+		if strings.HasPrefix(key, "oauth_") {
+			authHeader = append(authHeader, fmt.Sprintf(`%s="%s"`, key, url.QueryEscape(vals.Get(key))))
+		}
 	}
 	return "OAuth " + strings.Join(authHeader, ", ")
 }
