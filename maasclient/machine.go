@@ -211,7 +211,7 @@ func (m *machine) Deploy(ctx context.Context) (Machine, error) {
 		return nil, err
 	}
 
-	return nil, unMarshalJson(res, &m)
+	return m, unMarshalJson(res, &m)
 }
 
 func (m *machine) Deployer() MachineDeployer {
