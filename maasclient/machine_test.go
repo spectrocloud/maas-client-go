@@ -126,6 +126,9 @@ func TestClient_DeployMachine(t *testing.T) {
 		assert.NotNil(t, res)
 		assert.NotEmpty(t, res.SystemID())
 
+		res, err = res.Modifier().SetSwapSize(0).Update(ctx)
+		assert.Nil(t, err)
+
 		_, err = res.Deployer().
 			SetOSSystem("custom").
 			SetDistroSeries("u-1804-0-k-11912-0").Deploy(ctx)
