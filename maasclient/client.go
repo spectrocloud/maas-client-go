@@ -35,7 +35,6 @@ type authenticatedClient struct {
 	apiKey     string
 }
 
-
 type Client interface {
 	Get(ctx context.Context, path string, params url.Values) (*http.Response, error)
 	PostForm(ctx context.Context, path string, contentType string, params url.Values, body io.Reader) (*http.Response, error)
