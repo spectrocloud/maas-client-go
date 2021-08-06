@@ -73,18 +73,18 @@ type Set struct {
 	Label    string             `json:"label"`
 	Size     int                `json:"size"`
 	Complete bool               `json:"complete"`
-	Progress int                `json:"progress"`
+	Progress float64            `json:"progress"`
 	Files    map[string]SetFile `json:"files"`
 }
 
 type SetFile struct {
-	FileName  string `json:"filename"`
-	FileType  string `json:"filetype"`
-	SHA256    string `json:"sha256"`
-	Size      int    `json:"size"`
-	Complete  bool   `json:"complete"`
-	Progress  int    `json:"progress"`
-	UploadURI string `json:"upload_uri"`
+	FileName  string  `json:"filename"`
+	FileType  string  `json:"filetype"`
+	SHA256    string  `json:"sha256"`
+	Size      int     `json:"size"`
+	Complete  bool    `json:"complete"`
+	Progress  float64 `json:"progress"`
+	UploadURI string  `json:"upload_uri"`
 }
 
 func (s *Set) getUploadURI() (string, error) {

@@ -37,7 +37,6 @@ func unMarshalJson(res *http.Response, v interface{}) error {
 		return err
 	}
 
-
 	// 200 json body unmarshal ok
 	// cases where response in json caller can send nil and avoid unmarshalling overall
 	// for > 300 errors we return the body as it is
