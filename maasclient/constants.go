@@ -26,6 +26,7 @@ const (
 	ArchitectureKey = "architecture"
 	SHA256Key       = "sha256"
 	SizeKey         = "size"
+	BaseImageKey    = "base_image"
 	ZoneKey         = "zone"
 	SystemIDKey     = "system_id"
 	CPUCountKey     = "cpu_count"
