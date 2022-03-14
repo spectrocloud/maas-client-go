@@ -61,6 +61,7 @@ type BootResource interface {
 type BootResourceBuilder interface {
 	WithTitle(title string) BootResourceBuilder
 	WithFileType(fileType string) BootResourceBuilder
+	WithBaseImage(baseImage string) BootResourceBuilder
 	Create(ctx context.Context) (BootResource, error)
 }
 
@@ -100,6 +101,11 @@ func (s *Set) getUploadURI() (string, error) {
 type bootResources struct {
 	Controller
 	filePath string
+}
+
+func (brs *bootResources) WithBaseImage(baseImage string) BootResourceBuilder {
+	brs.params.Set(BaseImageKey, baseImage)
+	return brs
 }
 
 func (brs *bootResources) BootResource(id int) BootResource {
