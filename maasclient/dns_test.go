@@ -18,9 +18,10 @@ package maasclient
 
 import (
 	"context"
-	"github.com/stretchr/testify/assert"
 	"os"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestGetDNSResources(t *testing.T) {
@@ -47,8 +48,8 @@ func TestGetDNSResources(t *testing.T) {
 		assert.Empty(t, res)
 	})
 
-	t.Run("get cluster1.maas", func(t *testing.T) {
-		filters := ParamsBuilder().Add(FQDNKey, "ds-ubutu.maas.sc")
+	t.Run("get maas-1.maas", func(t *testing.T) {
+		filters := ParamsBuilder().Add(FQDNKey, "maas-1.maas.sc")
 		res, err := c.DNSResources().List(ctx, filters)
 		assert.Nil(t, err, "expecting nil error")
 		assert.NotEmpty(t, res)
@@ -60,14 +61,14 @@ func TestGetDNSResources(t *testing.T) {
 
 	})
 
-	t.Run("create test-unit1.maas", func(t *testing.T) {
+	t.Run("create test-unit-1.maas", func(t *testing.T) {
 		res, err := c.DNSResources().
 			Builder().
-			WithFQDN("test-unit1.maas.sc").
+			WithFQDN("test-unit-1.maas.sc").
 			WithAddressTTL("10").Create(ctx)
 		assert.Nil(t, err, "expecting nil error")
 		assert.NotNil(t, res)
-		assert.Equal(t, res.FQDN(), "test-unit1.maas.sc")
+		assert.Equal(t, res.FQDN(), "test-unit-1.maas.sc")
 		assert.Equal(t, res.AddressTTL(), 10)
 		assert.Empty(t, res.IPAddresses())
 
@@ -76,18 +77,18 @@ func TestGetDNSResources(t *testing.T) {
 
 	})
 
-	t.Run("create test-unit1.maas", func(t *testing.T) {
+	t.Run("create test-unit-2.maas", func(t *testing.T) {
 
 		//err := c.DNSResources().DNSResource(148).Delete(ctx)
 		//assert.Nil(t, err)
 
 		res, err := c.DNSResources().
 			Builder().
-			WithFQDN("test-unit1.maas.sc").
+			WithFQDN("test-unit-2.maas.sc").
 			WithAddressTTL("10").Create(ctx)
 		assert.Nil(t, err, "expecting nil error")
 		assert.NotNil(t, res)
-		assert.Equal(t, res.FQDN(), "test-unit1.maas.sc")
+		assert.Equal(t, res.FQDN(), "test-unit-2.maas.sc")
 		assert.Equal(t, res.AddressTTL(), 10)
 		assert.Empty(t, res.IPAddresses())
 
@@ -97,7 +98,7 @@ func TestGetDNSResources(t *testing.T) {
 		if err != nil {
 			t.Fatal("error", err)
 		}
-		assert.Equal(t, res.FQDN(), "test-unit1.maas.sc")
+		assert.Equal(t, res.FQDN(), "test-unit-2.maas.sc")
 		assert.Equal(t, res.AddressTTL(), 10)
 		assert.NotEmpty(t, res.IPAddresses())
 
