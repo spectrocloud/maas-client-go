@@ -16,15 +16,23 @@ limitations under the License.
 
 package maasclient
 
-type ClientSetInterface interface {
-	BootResources() BootResources
-	DNSResources() DNSResources
-	Domains() Domains
-	Machines() Machines
-	RackControllers() RackControllers
-	ResourcePools() ResourcePools
-	Spaces() Spaces
-	Users() Users
-	Zones() Zones
-	SSHKeys() SSHKeys
+import (
+	"context"
+	"os"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+)
+
+func TestSSHKeys(t *testing.T) {
+	c := NewAuthenticatedClientSet(os.Getenv("MAAS_ENDPOINT"), os.Getenv("MAAS_API_KEY"))
+
+	ctx := context.Background()
+
+	t.Run("list sshkeys", func(t *testing.T) {
+		sshKeys, err := c.SSHKeys().List(ctx)
+		assert.Nil(t, err)
+		assert.NotNil(t, sshKeys)
+		assert.NotEmpty(t, sshKeys)
+	})
 }
