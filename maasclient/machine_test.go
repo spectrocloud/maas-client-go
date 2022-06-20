@@ -18,11 +18,12 @@ package maasclient
 
 import (
 	"context"
-	"github.com/stretchr/testify/assert"
 	"math/rand"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestMain(m *testing.M) {
@@ -131,12 +132,12 @@ func TestClient_DeployMachine(t *testing.T) {
 
 		_, err = res.Deployer().
 			SetOSSystem("custom").
-			SetDistroSeries("u-1804-0-k-11912-0").Deploy(ctx)
+			SetDistroSeries("u-1804-0-k-11915-0").Deploy(ctx)
 		assert.Nil(t, err, "expecting nil error")
 		assert.NotNil(t, res)
 
 		assert.Equal(t, res.OSSystem(), "custom")
-		assert.Equal(t, res.DistroSeries(), "u-1804-0-k-11912-0")
+		assert.Equal(t, res.DistroSeries(), "u-1804-0-k-11915-0")
 
 		// Give me a few seconds before clenaing up
 		time.Sleep(15 * time.Second)

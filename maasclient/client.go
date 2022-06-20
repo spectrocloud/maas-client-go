@@ -20,12 +20,13 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"github.com/spectrocloud/maas-client-go/maasclient/oauth1"
 	"io"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/spectrocloud/maas-client-go/maasclient/oauth1"
 )
 
 // authenticatedClient
@@ -185,6 +186,7 @@ type authenticatedClientSet struct {
 	dnsResouceController   DNSResources
 	userController         Users
 	zoneController         Zones
+	sshKeyController       SSHKeys
 	bootController         BootResources
 	domainController       Domains
 	resourcePoolController ResourcePools
@@ -202,6 +204,10 @@ func (m *authenticatedClientSet) DNSResources() DNSResources {
 
 func (m *authenticatedClientSet) Users() Users {
 	return m.userController
+}
+
+func (m *authenticatedClientSet) SSHKeys() SSHKeys {
+	return m.sshKeyController
 }
 
 func (m *authenticatedClientSet) Zones() Zones {
@@ -253,6 +259,7 @@ func NewAuthenticatedClientSet(maasEndpoint, apiKey string, options ...func(clie
 	clientSet.rackControllers = NewRackControllersClient(client)
 	clientSet.dnsResouceController = NewDNSResourcesClient(client)
 	clientSet.userController = NewUsersClient(client)
+	clientSet.sshKeyController = NewSSHKeysClient(client)
 	clientSet.zoneController = NewZonesClient(client)
 	clientSet.bootController = NewBootResourcesClient(client)
 	clientSet.domainController = NewDomainsClient(client)
