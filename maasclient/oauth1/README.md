@@ -23,10 +23,10 @@ func main() {
 	url := "https://api.twitter.com/1.1/statuses/update.json?include_entities=true"
 	
 	auth := oauth1.OAuth1{
-		ConsumerKey: "xvz1evFS4wEEPTGEFPHBog",
-		ConsumerSecret: "kAcSOqF21Fu85e7zjz7ZN2U4ZRhfV3WpwPAoE3Z7kBw",
-		AccessToken: "370773112-GmHxMAgYyLbNEtIKZeRNFsMKPR9EyMZeS9weJAEb",
-		AccessSecret: "LswwdoUaIvS8ltyTt5jkRh4J50vUPVVHtR2YPi5kE",
+		ConsumerKey: "<consumer-key>",
+		ConsumerSecret: "<consumer-secret>",
+		AccessToken: "<access-token>",
+		AccessSecret: "<access-secret>",
 	}
 
 	authHeader := auth.BuildOAuth1Header(method, url, map[string]string {
@@ -53,5 +53,5 @@ func main() {
 
 Output: 
 ```
-OAuth oauth_consumer_key="xvz1evFS4wEEPTGEFPHBog",oauth_token="370773112-GmHxMAgYyLbNEtIKZeRNFsMKPR9EyMZeS9weJAEb",oauth_signature_method="HMAC-SHA1",oauth_timestamp="1318622958",oauth_nonce="kYjzVBB8Y0ZFabxSWbWovY3uYSQ2pTgmZeNu2VS4cg",oauth_version="1.0",oauth_signature="hCtSmYh%2BiHYCEqBWrE7C7hYmtUk%3D"
+OAuth oauth_consumer_key="<oauth-consumer-key>",oauth_token="<oauth-token>",oauth_signature_method="HMAC-SHA1",oauth_timestamp="1318622958",oauth_nonce="<oauth-nonce>",oauth_version="1.0",oauth_signature="<oauth-signature>"
 ```
