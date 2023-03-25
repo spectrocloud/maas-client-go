@@ -47,6 +47,12 @@ type Machine interface {
 	OSSystem() string
 	DistroSeries() string
 	SwapSize() int
+	PowerManagerOn() PowerManagerOn
+}
+
+type PowerManagerOn interface {
+	WithPowerOnComment(comment string) PowerManagerOn
+	PowerOn(ctx context.Context) (Machine, error)
 }
 
 type MachineReleaser interface {
@@ -188,6 +194,25 @@ type machine struct {
 	osSystem     string
 	distroSeries string
 	swapSize     int
+}
+
+func (m *machine) PowerManagerOn() PowerManagerOn {
+	m.params.Reset()
+	return m
+}
+
+func (m *machine) WithPowerOnComment(comment string) PowerManagerOn {
+	m.params.Set(CommentKey, url.QueryEscape(comment))
+	return m
+}
+
+func (m *machine) PowerOn(ctx context.Context) (Machine, error) {
+	res, err := m.client.Post(context.TODO(), fmt.Sprintf("%s%s", m.apiPath, "op-power_on"), m.params.Values())
+	if err != nil {
+		return m, err
+	}
+
+	return m, unMarshalJson(res, &m)
 }
 
 func (m *machine) SetOSSystem(ossytem string) MachineDeployer {
