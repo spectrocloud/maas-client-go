@@ -28,6 +28,7 @@ const (
 	SizeKey         = "size"
 	BaseImageKey    = "base_image"
 	ZoneKey         = "zone"
+	TagKey          = "tags"
 	SystemIDKey     = "system_id"
 	CPUCountKey     = "cpu_count"
 	MemoryKey       = "mem"
