@@ -77,6 +77,7 @@ type MachineAllocator interface {
 	WithName(name string) MachineAllocator
 	WithCPUCount(cpuCount int) MachineAllocator
 	WithMemory(memory int) MachineAllocator
+	WithTags(tags []string) MachineAllocator
 	WithResourcePool(pool string) MachineAllocator
 }
 
@@ -89,6 +90,13 @@ type MachineDeployer interface {
 
 type machines struct {
 	Controller
+}
+
+func (m *machines) WithTags(tags []string) MachineAllocator {
+	for _, tag := range tags {
+		m.params.Set(TagKey, tag)
+	}
+	return m
 }
 
 func (m *machines) Allocate(ctx context.Context) (Machine, error) {
