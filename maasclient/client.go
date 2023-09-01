@@ -189,6 +189,7 @@ type authenticatedClientSet struct {
 	sshKeyController       SSHKeys
 	bootController         BootResources
 	domainController       Domains
+	tagController          Tags
 	resourcePoolController ResourcePools
 	spaceController        Spaces
 	machineController      Machines
@@ -220,6 +221,10 @@ func (m *authenticatedClientSet) BootResources() BootResources {
 
 func (m *authenticatedClientSet) Domains() Domains {
 	return m.domainController
+}
+
+func (m *authenticatedClientSet) Tags() Tags {
+	return m.tagController
 }
 
 func (m *authenticatedClientSet) ResourcePools() ResourcePools {
@@ -262,6 +267,7 @@ func NewAuthenticatedClientSet(maasEndpoint, apiKey string, options ...func(clie
 	clientSet.sshKeyController = NewSSHKeysClient(client)
 	clientSet.zoneController = NewZonesClient(client)
 	clientSet.bootController = NewBootResourcesClient(client)
+	clientSet.tagController = NewTagsClient(client)
 	clientSet.domainController = NewDomainsClient(client)
 	clientSet.resourcePoolController = NewResourcePoolsClient(client)
 	clientSet.spaceController = NewSpacesClient(client)
