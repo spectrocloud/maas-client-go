@@ -24,7 +24,9 @@ import (
 )
 
 func TestTags(t *testing.T) {
-	c := NewAuthenticatedClientSet(os.Getenv("MAAS_ENDPOINT"), os.Getenv("MAAS_API_KEY"))
+	endPoint := os.Getenv("MAAS_ENDPOINT")
+	apiKey := os.Getenv("MAAS_API_KEY")
+	c := NewAuthenticatedClientSet(endPoint, apiKey)
 
 	ctx := context.Background()
 

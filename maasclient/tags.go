@@ -22,12 +22,11 @@ import (
 )
 
 const (
-	TagsAPIPath       = "/tags/"
-	TagsAPIPathFormat = "/tags/%d"
+	TagsAPIPath = "/tags/"
 )
 
 type Tags interface {
-	List(ctx context.Context) ([]Domain, error)
+	List(ctx context.Context) ([]Tag, error)
 }
 
 type Tag interface {
@@ -39,52 +38,88 @@ type tags struct {
 	Controller
 }
 
-func (ds *tags) List(ctx context.Context) ([]Domain, error) {
+func (ds *tags) List(ctx context.Context) ([]Tag, error) {
 	res, err := ds.client.Get(ctx, ds.apiPath, ds.params.Values())
 	if err != nil {
 		return nil, err
 	}
 
-	var obj []*domain
+	var obj []*tag
 	err = unMarshalJson(res, &obj)
 	if err != nil {
 		return nil, err
 	}
 
-	return domainStructSliceToInterface(obj, ds.client), nil
+	return tagsStructSliceToInterface(obj, ds.client), nil
+}
+
+func tagsStructSliceToInterface(in []*tag, client Client) []Tag {
+	var out []Tag
+	for _, d := range in {
+		out = append(out, tagStructToInterface(d, client))
+	}
+	return out
+}
+
+func tagStructToInterface(in *tag, client Client) Tag {
+	in.client = client
+	in.apiPath = TagsAPIPath
+	in.params = ParamsBuilder()
+	return in
 }
 
 type tag struct {
-	id   int
-	name string
+	name         string
+	definition   string
+	comment      string
+	kernel_opts  string
+	resource_uri string
 	Controller
 }
 
 func (d *tag) ID() int {
-	return d.id
+	return 0
 }
 
 func (d *tag) Name() string {
 	return d.name
 }
 
+func (d *tag) Definition() string {
+	return d.definition
+}
+
+func (d *tag) Comment() string {
+	return d.comment
+}
+
+func (d *tag) KernelOpts() string {
+	return d.kernel_opts
+}
+
+func (d *tag) ResourceUri() string {
+	return d.resource_uri
+}
+
 func (d *tag) UnmarshalJSON(data []byte) error {
-	des := &struct {
-		Authoritative       bool   `json:"authoritative"`
-		TTL                 int    `json:"ttl"`
-		ResourceRecordCount int    `json:"resource_record_count"`
-		Name                string `json:"name"`
-		Id                  int    `json:"id"`
-		IsDefault           bool   `json:"is_default"`
+	des := struct {
+		ResourceUri string `json:"resource_uri"`
+		Name        string `json:"name"`
+		Definition  string `json:"definition"`
+		Comment     string `json:"comment"`
+		KernelOpts  string `json:"kernel_opts"`
 	}{}
 
-	err := json.Unmarshal(data, des)
+	err := json.Unmarshal(data, &des)
 	if err != nil {
 		return err
 	}
 
-	d.id = des.Id
 	d.name = des.Name
+	d.comment = des.KernelOpts
+	d.resource_uri = des.ResourceUri
+	d.kernel_opts = des.KernelOpts
+	d.definition = des.Definition
 
 	return nil
 }
