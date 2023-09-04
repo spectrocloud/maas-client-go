@@ -30,8 +30,11 @@ type Tags interface {
 }
 
 type Tag interface {
-	ID() int
 	Name() string
+	Definition() string
+	Comment() string
+	KernelOpts() string
+	ResourceUri() string
 }
 
 type tags struct {
@@ -75,10 +78,6 @@ type tag struct {
 	kernel_opts  string
 	resource_uri string
 	Controller
-}
-
-func (d *tag) ID() int {
-	return 0
 }
 
 func (d *tag) Name() string {
