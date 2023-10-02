@@ -79,6 +79,7 @@ type MachineAllocator interface {
 	WithMemory(memory int) MachineAllocator
 	WithTags(tags []string) MachineAllocator
 	WithResourcePool(pool string) MachineAllocator
+	WithStorage(storageDefinition string) MachineAllocator
 }
 
 type MachineDeployer interface {
@@ -141,6 +142,11 @@ func (m *machines) WithMemory(memory int) MachineAllocator {
 
 func (m *machines) WithResourcePool(pool string) MachineAllocator {
 	m.params.Set(PoolLabel, pool)
+	return m
+}
+
+func (m *machines) WithStorage(storageDefinition string) MachineAllocator {
+	m.params.Set(StorageKey, storageDefinition)
 	return m
 }
 
