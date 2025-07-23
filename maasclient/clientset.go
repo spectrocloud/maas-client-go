@@ -28,4 +28,5 @@ type ClientSetInterface interface {
 	Users() Users
 	Zones() Zones
 	SSHKeys() SSHKeys
+	VMHosts() VMHosts
 }

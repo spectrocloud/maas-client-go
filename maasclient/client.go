@@ -193,6 +193,7 @@ type authenticatedClientSet struct {
 	resourcePoolController ResourcePools
 	spaceController        Spaces
 	machineController      Machines
+	vmHostsController      VMHosts
 }
 
 func (m *authenticatedClientSet) RackControllers() RackControllers {
@@ -239,6 +240,10 @@ func (m *authenticatedClientSet) Machines() Machines {
 	return m.machineController
 }
 
+func (m *authenticatedClientSet) VMHosts() VMHosts {
+	return m.vmHostsController
+}
+
 func NewAuthenticatedClientSet(maasEndpoint, apiKey string, options ...func(client *authenticatedClientSet)) ClientSetInterface {
 	transport := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
@@ -272,6 +277,7 @@ func NewAuthenticatedClientSet(maasEndpoint, apiKey string, options ...func(clie
 	clientSet.resourcePoolController = NewResourcePoolsClient(client)
 	clientSet.spaceController = NewSpacesClient(client)
 	clientSet.machineController = NewMachinesClient(client)
+	clientSet.vmHostsController = NewVMHostsClient(client)
 
 	return clientSet
 }
