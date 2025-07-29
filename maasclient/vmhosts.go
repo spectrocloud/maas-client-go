@@ -271,13 +271,19 @@ func (c *vmHostMachines) List(ctx context.Context) ([]Machine, error) {
 	return result, nil
 }
 
+func (c *vmHost) Zone() Zone {
+	return &zone{name: c.data.Zone.Name, id: c.data.Zone.ID}
+}
+
+func (c *vmHost) ResourcePool() ResourcePool {
+	return &resourcePool{name: c.data.Pool.Name, id: c.data.Pool.ID}
+}
+
 // VMHost property implementations - these are populated from API response data
 func (c *vmHost) SystemID() string        { return c.systemID }
 func (c *vmHost) Name() string            { return c.data.Name }
 func (c *vmHost) Type() string            { return c.data.Type }
 func (c *vmHost) PowerAddress() string    { return c.data.PowerAddress }
-func (c *vmHost) Zone() Zone              { return nil } // TODO: Implement zone lookup
-func (c *vmHost) ResourcePool() ResourcePool { return nil } // TODO: Implement resource pool lookup
 func (c *vmHost) TotalCores() int         { return c.data.TotalResources.Cores }
 func (c *vmHost) TotalMemory() int        { return c.data.TotalResources.Memory }
 func (c *vmHost) UsedCores() int          { return c.data.UsedResources.Cores }
