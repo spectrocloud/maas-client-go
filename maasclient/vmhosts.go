@@ -294,8 +294,14 @@ type vmHostDetails struct {
 	Name           string `json:"name"`
 	Type           string `json:"type"`
 	PowerAddress   string `json:"power_address"`
-	Zone           string `json:"zone"`
-	Pool           string `json:"pool"`
+	Zone         struct {
+		Name string `json:"name"`
+		ID   int    `json:"id"`
+	} `json:"zone"`
+	Pool struct {
+		Name string `json:"name"`
+		ID   int    `json:"id"`
+	} `json:"pool"`
 	TotalResources struct {
 		Cores  int `json:"cores"`
 		Memory int `json:"memory"`
