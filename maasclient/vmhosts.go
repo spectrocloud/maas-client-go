@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"strconv"
 )
 
 // VMHosts interface for managing VM hosts collection
@@ -34,11 +35,11 @@ type VMHost interface {
 	Get(ctx context.Context) (VMHost, error)
 	Update(ctx context.Context, params Params) (VMHost, error)
 	Delete(ctx context.Context) error
-	
+
 	// VM Host specific operations
 	Composer() VMComposer
 	Machines() VMHostMachines
-	
+
 	// Properties
 	SystemID() string
 	Name() string
@@ -46,7 +47,7 @@ type VMHost interface {
 	PowerAddress() string
 	Zone() Zone
 	ResourcePool() ResourcePool
-	
+
 	// Resource information
 	TotalCores() int
 	TotalMemory() int
@@ -54,11 +55,11 @@ type VMHost interface {
 	UsedMemory() int
 	AvailableCores() int
 	AvailableMemory() int
-	
+
 	// Capabilities
 	Capabilities() []string
 	Projects() []string
-	StoragePools() []string
+	StoragePools() []StoragePool
 }
 
 // VMComposer interface for composing VMs on a VM host
@@ -76,7 +77,7 @@ type vmHosts struct {
 	Controller
 }
 
-// vmHost implements VMHost interface following the Controller pattern  
+// vmHost implements VMHost interface following the Controller pattern
 type vmHost struct {
 	Controller
 	systemID string
@@ -123,13 +124,14 @@ func (c *vmHosts) List(ctx context.Context, params Params) ([]VMHost, error) {
 
 	var result []VMHost
 	for _, vmHostData := range vmHostsResponse {
+		systemIDStr := strconv.Itoa(vmHostData.ID)
 		result = append(result, &vmHost{
 			Controller: Controller{
 				client:  c.client,
-				apiPath: fmt.Sprintf("/vm-host/%s/", vmHostData.SystemID),
+				apiPath: fmt.Sprintf("/vm-host/%s/", systemIDStr),
 				params:  ParamsBuilder(),
 			},
-			systemID: vmHostData.SystemID,
+			systemID: systemIDStr,
 			data:     vmHostData,
 		})
 	}
@@ -148,13 +150,15 @@ func (c *vmHosts) Create(ctx context.Context, params Params) (VMHost, error) {
 		return nil, err
 	}
 
+	systemIDStr := strconv.Itoa(vmHostData.ID)
+
 	return &vmHost{
 		Controller: Controller{
 			client:  c.client,
-			apiPath: fmt.Sprintf("/vm-host/%s/", vmHostData.SystemID),
+			apiPath: fmt.Sprintf("/vm-host/%s/", systemIDStr),
 			params:  ParamsBuilder(),
 		},
-		systemID: vmHostData.SystemID,
+		systemID: systemIDStr,
 		data:     vmHostData,
 	}, nil
 }
@@ -186,7 +190,7 @@ func (c *vmHost) Get(ctx context.Context) (VMHost, error) {
 	// Update the vmHost with the fetched data
 	return &vmHost{
 		Controller: c.Controller,
-		systemID:   vmHostData.SystemID,
+		systemID:   strconv.Itoa(vmHostData.ID),
 		data:       vmHostData,
 	}, nil
 }
@@ -232,10 +236,10 @@ func (c *vmHost) Machines() VMHostMachines {
 	}
 }
 
-// Implementation of VMComposer interface  
+// Implementation of VMComposer interface
 func (c *vmComposer) Compose(ctx context.Context, params Params) (Machine, error) {
 	composePath := fmt.Sprintf("/vm-host/%s/compose/", c.systemID)
-	
+
 	resp, err := c.client.Post(ctx, composePath, params.Values())
 	if err != nil {
 		return nil, err
@@ -280,52 +284,71 @@ func (c *vmHost) ResourcePool() ResourcePool {
 }
 
 // VMHost property implementations - these are populated from API response data
-func (c *vmHost) SystemID() string        { return c.systemID }
-func (c *vmHost) Name() string            { return c.data.Name }
-func (c *vmHost) Type() string            { return c.data.Type }
-func (c *vmHost) PowerAddress() string    { return c.data.PowerAddress }
-func (c *vmHost) TotalCores() int         { return c.data.TotalResources.Cores }
-func (c *vmHost) TotalMemory() int        { return c.data.TotalResources.Memory }
-func (c *vmHost) UsedCores() int          { return c.data.UsedResources.Cores }
-func (c *vmHost) UsedMemory() int         { return c.data.UsedResources.Memory }
-func (c *vmHost) AvailableCores() int     { return c.data.AvailableResources.Cores }
-func (c *vmHost) AvailableMemory() int    { return c.data.AvailableResources.Memory }
-func (c *vmHost) Capabilities() []string  { return c.data.Capabilities }
-func (c *vmHost) Projects() []string      { return c.data.Projects }
-func (c *vmHost) StoragePools() []string  { return c.data.StoragePools }
+func (c *vmHost) SystemID() string            { return c.systemID }
+func (c *vmHost) Name() string                { return c.data.Name }
+func (c *vmHost) Type() string                { return c.data.Type }
+func (c *vmHost) PowerAddress() string        { return c.data.PowerAddress }
+func (c *vmHost) TotalCores() int             { return c.data.TotalResources.Cores }
+func (c *vmHost) TotalMemory() int            { return c.data.TotalResources.Memory }
+func (c *vmHost) UsedCores() int              { return c.data.UsedResources.Cores }
+func (c *vmHost) UsedMemory() int             { return c.data.UsedResources.Memory }
+func (c *vmHost) AvailableCores() int         { return c.data.AvailableResources.Cores }
+func (c *vmHost) AvailableMemory() int        { return c.data.AvailableResources.Memory }
+func (c *vmHost) Capabilities() []string      { return c.data.Capabilities }
+func (c *vmHost) Projects() []string          { return c.data.Projects }
+func (c *vmHost) StoragePools() []StoragePool { return c.data.StoragePools }
 
 // Response structures for API unmarshaling
 type vmHostDetails struct {
-	SystemID       string `json:"id"`
-	Name           string `json:"name"`
-	Type           string `json:"type"`
-	PowerAddress   string `json:"power_address"`
-	Zone         struct {
-		Name string `json:"name"`
+	ID   int    `json:"id"`
+	Name string `json:"name"`
+	Type string `json:"type"`
+
+	PowerAddress string `json:"power_address"`
+
+	Zone struct {
 		ID   int    `json:"id"`
+		Name string `json:"name"`
 	} `json:"zone"`
+
 	Pool struct {
-		Name string `json:"name"`
 		ID   int    `json:"id"`
+		Name string `json:"name"`
 	} `json:"pool"`
+
 	TotalResources struct {
 		Cores  int `json:"cores"`
 		Memory int `json:"memory"`
 	} `json:"total"`
+
 	UsedResources struct {
 		Cores  int `json:"cores"`
 		Memory int `json:"memory"`
 	} `json:"used"`
+
 	AvailableResources struct {
 		Cores  int `json:"cores"`
 		Memory int `json:"memory"`
 	} `json:"available"`
+
 	Capabilities []string `json:"capabilities"`
 	Projects     []string `json:"projects"`
-	StoragePools []string `json:"storage_pools"`
+
+	StoragePools []StoragePool `json:"storage_pools"`
 }
 
 // machineDetails structure for machine responses
 type machineDetails struct {
 	SystemID string `json:"system_id"`
+}
+
+// StoragePool represents one entry in the storage_pools array
+type StoragePool struct {
+	Name      string `json:"name"`
+	Driver    string `json:"driver,omitempty"`
+	Total     int64  `json:"total,omitempty"`
+	Used      int64  `json:"used,omitempty"`
+	Pending   int64  `json:"pending,omitempty"`
+	Available int64  `json:"avail,omitempty"`
+	Remote    bool   `json:"remote,omitempty"`
 }
