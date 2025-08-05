@@ -48,6 +48,8 @@ type Machine interface {
 	DistroSeries() string
 	SwapSize() int
 	PowerManagerOn() PowerManagerOn
+	// BootInterfaceID returns the ID of the boot interface, or empty string if not available
+	BootInterfaceID() string
 }
 
 type PowerManagerOn interface {
@@ -192,16 +194,17 @@ func (m *machines) Allocator() MachineAllocator {
 
 type machine struct {
 	Controller
-	systemID     string
-	fqdn         string
-	zone         *zone
-	powerState   string
-	hostname     string
-	ipaddresses  []net.IP
-	state        string
-	osSystem     string
-	distroSeries string
-	swapSize     int
+	systemID        string
+	fqdn            string
+	zone            *zone
+	powerState      string
+	hostname        string
+	ipaddresses     []net.IP
+	state           string
+	osSystem        string
+	distroSeries    string
+	swapSize        int
+	bootInterfaceID string
 }
 
 func (m *machine) PowerManagerOn() PowerManagerOn {
@@ -380,18 +383,25 @@ func (m *machine) SwapSize() int {
 	return m.swapSize
 }
 
+func (m *machine) BootInterfaceID() string {
+	return m.bootInterfaceID
+}
+
 func (m *machine) UnmarshalJSON(data []byte) error {
 	des := &struct {
-		SystemID     string   `json:"system_id"`
-		FQDNLabel    string   `json:"fqdn"`
-		Zone         *zone    `json:"zone"`
-		PowerState   string   `json:"power_state"`
-		Hostname     string   `json:"hostname"`
-		IpAddresses  []string `json:"ip_addresses"`
-		State        string   `json:"status_name"`
-		OSSystem     string   `json:"osystem"`
-		DistroSeries string   `json:"distro_series"`
-		SwapSize     int      `json:"swap_size"`
+		SystemID      string   `json:"system_id"`
+		FQDNLabel     string   `json:"fqdn"`
+		Zone          *zone    `json:"zone"`
+		PowerState    string   `json:"power_state"`
+		Hostname      string   `json:"hostname"`
+		IpAddresses   []string `json:"ip_addresses"`
+		State         string   `json:"status_name"`
+		OSSystem      string   `json:"osystem"`
+		DistroSeries  string   `json:"distro_series"`
+		SwapSize      int      `json:"swap_size"`
+		BootInterface struct {
+			ID int `json:"id"`
+		} `json:"boot_interface"`
 	}{}
 
 	err := json.Unmarshal(data, des)
@@ -411,6 +421,11 @@ func (m *machine) UnmarshalJSON(data []byte) error {
 	m.osSystem = des.OSSystem
 	m.distroSeries = des.DistroSeries
 	m.swapSize = des.SwapSize
+
+	// Handle boot interface
+	if des.BootInterface.ID != 0 {
+		m.bootInterfaceID = fmt.Sprintf("%d", des.BootInterface.ID)
+	}
 
 	return nil
 }

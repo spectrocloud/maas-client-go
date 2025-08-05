@@ -29,6 +29,8 @@ type NetworkInterfaces interface {
 	Get(ctx context.Context, systemID string) ([]NetworkInterface, error)
 	// Interface returns a NetworkInterface for a specific interface ID
 	Interface(systemID, interfaceID string) NetworkInterface
+	// SetBootInterfaceStaticIP sets a static IP on the boot interface directly
+	SetBootInterfaceStaticIP(ctx context.Context, systemID, ipAddress string) error
 }
 
 // NetworkInterface represents a single network interface on a machine
@@ -41,8 +43,11 @@ type NetworkInterface interface {
 	UnlinkSubnet(ctx context.Context, linkID string) error
 	// UpdateIPConfiguration updates an existing link's IP configuration directly
 	UpdateIPConfiguration(ctx context.Context, config IPConfigurationUpdate) error
-	// SetStaticIP sets a static IP on the interface (handles existing links automatically)
-	SetStaticIP(ctx context.Context, subnetID string, ipAddress string) error
+	// SetStaticIP sets a static IP on the interface
+	// Handles two valid scenarios:
+	// 1. Interface has direct links - configures directly
+	// 2. Interface has children (bridge) - configures on child with links
+	SetStaticIP(ctx context.Context, ipAddress string) error
 	// SetDHCP sets the interface to use DHCP (handles existing links automatically)
 	SetDHCP(ctx context.Context, subnetID string) error
 
@@ -53,6 +58,7 @@ type NetworkInterface interface {
 	Enabled() bool
 	MACAddress() string
 	Links() []NetworkInterfaceLink
+	Children() []string
 	VLAN() VLAN
 }
 
@@ -86,6 +92,7 @@ type networkInterface struct {
 	enabled     bool
 	macAddress  string
 	links       []*networkInterfaceLink
+	children    []string
 	vlan        *vlan
 }
 
@@ -139,6 +146,40 @@ func (ni *networkInterfaces) Interface(systemID, interfaceID string) NetworkInte
 		systemID:    systemID,
 		interfaceID: interfaceID,
 	}
+}
+
+func (ni *networkInterfaces) SetBootInterfaceStaticIP(ctx context.Context, systemID, ipAddress string) error {
+	// Get machine details to find boot interface ID
+	machineClient := &machine{
+		Controller: Controller{
+			client:  ni.client,
+			apiPath: fmt.Sprintf("/machines/%s/", systemID),
+			params:  ParamsBuilder(),
+		},
+		systemID: systemID,
+	}
+
+	machineDetails, err := machineClient.Get(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get machine details: %v", err)
+	}
+
+	bootInterfaceID := machineDetails.BootInterfaceID()
+	if bootInterfaceID == "" {
+		return fmt.Errorf("no boot interface found for machine %s", systemID)
+	}
+
+	// Get the boot interface directly
+	bootInterface := ni.Interface(systemID, bootInterfaceID)
+
+	// Populate the interface data by calling Get()
+	bootInterface, err = bootInterface.Get(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get boot interface details: %v", err)
+	}
+
+	// Use the enhanced SetStaticIP that handles both direct links and bridge scenarios
+	return bootInterface.SetStaticIP(ctx, ipAddress)
 }
 
 // NetworkInterface implementation
@@ -238,7 +279,7 @@ func (ni *networkInterface) UpdateIPConfiguration(ctx context.Context, config IP
 	}
 }
 
-func (ni *networkInterface) SetStaticIP(ctx context.Context, subnetID string, ipAddress string) error {
+func (ni *networkInterface) SetStaticIP(ctx context.Context, ipAddress string) error {
 	// Ensure the interface has proper API path and client setup
 	if ni.apiPath == "" {
 		ni.apiPath = fmt.Sprintf("/nodes/%s/interfaces/%s/", ni.systemID, ni.interfaceID)
@@ -247,14 +288,46 @@ func (ni *networkInterface) SetStaticIP(ctx context.Context, subnetID string, ip
 		ni.params = ParamsBuilder()
 	}
 
-	// Get current links from the existing interface object
+	// Get current links and children to determine the strategy
+	// Boot interfaces should always have either direct links or children (bridge scenario)
 	links := ni.Links()
+	children := ni.Children()
 
-	// If there are existing links, update the first one to static
+	// Case 1: Interface has direct links - configure directly
 	if len(links) > 0 {
-		firstLink := links[0]
+		var targetLink NetworkInterfaceLink
+
+		// Prefer DHCP links first, then any link with a subnet
+		for _, link := range links {
+			if link.Mode() == ModeDHCP {
+				targetLink = link
+				break
+			}
+		}
+
+		// If no DHCP link found, use any link with a subnet
+		if targetLink == nil {
+			for _, link := range links {
+				if link.Subnet() != nil {
+					targetLink = link
+					break
+				}
+			}
+		}
+
+		// Fallback to first link if no suitable link found
+		if targetLink == nil {
+			targetLink = links[0]
+		}
+
+		// Use the subnet from the existing link
+		if targetLink.Subnet() == nil {
+			return fmt.Errorf("target link has no subnet information")
+		}
+		subnetID := fmt.Sprintf("%d", targetLink.Subnet().ID())
+
 		config := IPConfigurationUpdate{
-			LinkID:    firstLink.ID(),
+			LinkID:    targetLink.ID(),
 			Mode:      ModeStatic,
 			IPAddress: &ipAddress,
 			SubnetID:  &subnetID,
@@ -262,8 +335,36 @@ func (ni *networkInterface) SetStaticIP(ctx context.Context, subnetID string, ip
 		return ni.UpdateIPConfiguration(ctx, config)
 	}
 
-	// If no existing links, create a new static link
-	return ni.LinkSubnet(ctx, subnetID, ipAddress)
+	// Case 2: No direct links but has children (bridge scenario)
+	if len(children) > 0 {
+		// Get all interfaces from the parent client to find children
+		networkInterfaces := &networkInterfaces{
+			Controller: Controller{
+				client: ni.client,
+				params: ParamsBuilder(),
+			},
+		}
+
+		allInterfaces, err := networkInterfaces.Get(ctx, ni.systemID)
+		if err != nil {
+			return fmt.Errorf("failed to get interfaces for bridge detection: %v", err)
+		}
+
+		// Find a child interface with actual network links
+		for _, childName := range children {
+			for _, iface := range allInterfaces {
+				if iface.Name() == childName && len(iface.Links()) > 0 {
+					// Recursively call SetStaticIP on the child interface with links
+					return iface.SetStaticIP(ctx, ipAddress)
+				}
+			}
+		}
+
+		return fmt.Errorf("no child interface with links found for bridge configuration")
+	}
+
+	// Case 3: Invalid configuration - boot interface should have either links or children
+	return fmt.Errorf("invalid boot interface configuration: no links and no children found for interface %s", ni.name)
 }
 
 func (ni *networkInterface) SetDHCP(ctx context.Context, subnetID string) error {
@@ -318,6 +419,10 @@ func (ni *networkInterface) Links() []NetworkInterfaceLink {
 	return networkInterfaceLinkSliceToInterface(ni.links)
 }
 
+func (ni *networkInterface) Children() []string {
+	return ni.children
+}
+
 func (ni *networkInterface) VLAN() VLAN {
 	return ni.vlan
 }
@@ -332,6 +437,7 @@ func (ni *networkInterface) UnmarshalJSON(data []byte) error {
 		Enabled    bool                    `json:"enabled"`
 		MACAddress string                  `json:"mac_address"`
 		Links      []*networkInterfaceLink `json:"links"`
+		Children   []string                `json:"children"`
 		VLAN       *vlan                   `json:"vlan"`
 		*Alias
 	}{
@@ -349,6 +455,7 @@ func (ni *networkInterface) UnmarshalJSON(data []byte) error {
 	ni.enabled = aux.Enabled
 	ni.macAddress = aux.MACAddress
 	ni.links = aux.Links
+	ni.children = aux.Children
 	ni.vlan = aux.VLAN
 
 	return nil
