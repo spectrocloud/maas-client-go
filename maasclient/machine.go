@@ -50,6 +50,10 @@ type Machine interface {
 	PowerManagerOn() PowerManagerOn
 	// BootInterfaceID returns the ID of the boot interface, or empty string if not available
 	BootInterfaceID() string
+	// TotalStorageGB returns total storage in GB using decimal units (as MAAS reports)
+	TotalStorageGB() float64
+	// GetBootInterfaceType returns the type of the boot interface ("physical", "bridge", "bond", etc.)
+	GetBootInterfaceType() string
 }
 
 type PowerManagerOn interface {
@@ -194,17 +198,20 @@ func (m *machines) Allocator() MachineAllocator {
 
 type machine struct {
 	Controller
-	systemID        string
-	fqdn            string
-	zone            *zone
-	powerState      string
-	hostname        string
-	ipaddresses     []net.IP
-	state           string
-	osSystem        string
-	distroSeries    string
-	swapSize        int
-	bootInterfaceID string
+	systemID          string
+	fqdn              string
+	zone              *zone
+	powerState        string
+	hostname          string
+	ipaddresses       []net.IP
+	state             string
+	osSystem          string
+	distroSeries      string
+	swapSize          int
+	bootInterfaceID   string
+	bootInterfaceType string  // Type of boot interface (physical, bridge, bond, etc.)
+	memory            int     // Memory in MB
+	storageMBDecimal  float64 // Total storage in decimal MB as reported by MAAS (e.g., 250059.35)
 }
 
 func (m *machine) PowerManagerOn() PowerManagerOn {
@@ -387,6 +394,21 @@ func (m *machine) BootInterfaceID() string {
 	return m.bootInterfaceID
 }
 
+// TotalStorageGB returns total storage in GB using decimal units (as MAAS reports)
+func (m *machine) TotalStorageGB() float64 {
+	// MAAS storage field is in decimal MB (e.g., 250059.350016)
+	// Convert MB (decimal) to GB (decimal) by dividing by 1000
+	if m.storageMBDecimal <= 0 {
+		return 0
+	}
+	return m.storageMBDecimal / 1000.0
+}
+
+// GetBootInterfaceType returns the type of the boot interface
+func (m *machine) GetBootInterfaceType() string {
+	return m.bootInterfaceType
+}
+
 func (m *machine) UnmarshalJSON(data []byte) error {
 	des := &struct {
 		SystemID      string   `json:"system_id"`
@@ -399,8 +421,12 @@ func (m *machine) UnmarshalJSON(data []byte) error {
 		OSSystem      string   `json:"osystem"`
 		DistroSeries  string   `json:"distro_series"`
 		SwapSize      int      `json:"swap_size"`
+		Memory        int      `json:"memory"`
+		Storage       float64  `json:"storage"`
 		BootInterface struct {
-			ID int `json:"id"`
+			ID       int      `json:"id"`
+			Type     string   `json:"type"`
+			Children []string `json:"children"`
 		} `json:"boot_interface"`
 	}{}
 
@@ -421,10 +447,19 @@ func (m *machine) UnmarshalJSON(data []byte) error {
 	m.osSystem = des.OSSystem
 	m.distroSeries = des.DistroSeries
 	m.swapSize = des.SwapSize
+	m.memory = des.Memory
+	m.storageMBDecimal = des.Storage
 
 	// Handle boot interface
 	if des.BootInterface.ID != 0 {
 		m.bootInterfaceID = fmt.Sprintf("%d", des.BootInterface.ID)
+
+		// Simple rule: children present = bridge, children empty/absent = physical
+		if len(des.BootInterface.Children) > 0 {
+			m.bootInterfaceType = "bridge"
+		} else {
+			m.bootInterfaceType = "physical"
+		}
 	}
 
 	return nil
