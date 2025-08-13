@@ -31,6 +31,10 @@ type NetworkInterfaces interface {
 	Interface(systemID, interfaceID string) NetworkInterface
 	// SetBootInterfaceStaticIP sets a static IP on the boot interface directly
 	SetBootInterfaceStaticIP(ctx context.Context, systemID, ipAddress string) error
+	// CreateBridge creates a bridge interface on the specified parent interface
+	CreateBridge(ctx context.Context, systemID, bridgeName, parentInterfaceID string) (NetworkInterface, error)
+	// CreateBootInterfaceBridge creates a bridge on the machine's boot interface
+	CreateBootInterfaceBridge(ctx context.Context, systemID, bridgeName string) (NetworkInterface, error)
 }
 
 // NetworkInterface represents a single network interface on a machine
@@ -180,6 +184,61 @@ func (ni *networkInterfaces) SetBootInterfaceStaticIP(ctx context.Context, syste
 
 	// Use the enhanced SetStaticIP that handles both direct links and bridge scenarios
 	return bootInterface.SetStaticIP(ctx, ipAddress)
+}
+
+func (ni *networkInterfaces) CreateBridge(ctx context.Context, systemID, bridgeName, parentInterfaceID string) (NetworkInterface, error) {
+	// Set up parameters for bridge creation
+	ni.params.Reset()
+	ni.params.Set(Operation, OperationCreateBridge)
+	ni.params.Set(NameKey, bridgeName)
+	ni.params.Set(ParentKey, parentInterfaceID)
+
+	// Make the API call to create the bridge
+	path := fmt.Sprintf("/nodes/%s/interfaces/", systemID)
+	res, err := ni.client.Post(ctx, path, ni.params.Values())
+	if err != nil {
+		return nil, fmt.Errorf("failed to create bridge %s on parent %s: %w", bridgeName, parentInterfaceID, err)
+	}
+
+	// Parse the response into a network interface
+	var bridgeInterface *networkInterface
+	err = unMarshalJson(res, &bridgeInterface)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse bridge creation response: %w", err)
+	}
+
+	// Set system ID and client for the new interface
+	bridgeInterface.systemID = systemID
+	bridgeInterface.client = ni.client
+	bridgeInterface.apiPath = fmt.Sprintf("/nodes/%s/interfaces/%s/", systemID, bridgeInterface.id)
+	bridgeInterface.params = ParamsBuilder()
+
+	return bridgeInterface, nil
+}
+
+func (ni *networkInterfaces) CreateBootInterfaceBridge(ctx context.Context, systemID, bridgeName string) (NetworkInterface, error) {
+	// Get machine details to find boot interface ID
+	machineClient := &machine{
+		Controller: Controller{
+			client:  ni.client,
+			apiPath: fmt.Sprintf("/machines/%s/", systemID),
+			params:  ParamsBuilder(),
+		},
+		systemID: systemID,
+	}
+
+	machineDetails, err := machineClient.Get(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get machine details: %w", err)
+	}
+
+	bootInterfaceID := machineDetails.BootInterfaceID()
+	if bootInterfaceID == "" {
+		return nil, fmt.Errorf("no boot interface found for machine %s", systemID)
+	}
+
+	// Create bridge on the boot interface
+	return ni.CreateBridge(ctx, systemID, bridgeName, bootInterfaceID)
 }
 
 // NetworkInterface implementation
