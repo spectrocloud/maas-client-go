@@ -56,6 +56,7 @@ const (
 	IPAddressKey    = "ip_address"
 	ModeKey         = "mode"
 	LinkIDKey       = "id"
+	ParentKey       = "parent"
 
 	// Network interface modes
 	ModeDHCP   = "dhcp"
@@ -71,4 +72,5 @@ const (
 	OperationAllocate         = "allocate"
 	OperationLinkSubnet       = "link_subnet"
 	OperationUnlinkSubnet     = "unlink_subnet"
+	OperationCreateBridge     = "create_bridge"
 )
