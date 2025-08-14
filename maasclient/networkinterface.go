@@ -280,12 +280,9 @@ func (ni *networkInterface) UpdateIPConfiguration(ctx context.Context, config IP
 }
 
 func (ni *networkInterface) SetStaticIP(ctx context.Context, ipAddress string) error {
-	// Ensure the interface has proper API path and client setup
+	// Ensure the interface has proper API path setup
 	if ni.apiPath == "" {
 		ni.apiPath = fmt.Sprintf("/nodes/%s/interfaces/%s/", ni.systemID, ni.interfaceID)
-	}
-	if ni.params == nil {
-		ni.params = ParamsBuilder()
 	}
 
 	// Get current links and children to determine the strategy
@@ -368,12 +365,9 @@ func (ni *networkInterface) SetStaticIP(ctx context.Context, ipAddress string) e
 }
 
 func (ni *networkInterface) SetDHCP(ctx context.Context, subnetID string) error {
-	// Ensure the interface has proper API path and client setup
+	// Ensure the interface has proper API path setup
 	if ni.apiPath == "" {
 		ni.apiPath = fmt.Sprintf("/nodes/%s/interfaces/%s/", ni.systemID, ni.interfaceID)
-	}
-	if ni.params == nil {
-		ni.params = ParamsBuilder()
 	}
 
 	// Get current links from the existing interface object
@@ -582,6 +576,10 @@ func networkInterfaceStructToInterface(in *networkInterface, client Client) Netw
 	// Set up the interface ID for API calls if available
 	if in.id != "" {
 		in.interfaceID = in.id
+	}
+	// Ensure params is initialized
+	if in.params == nil {
+		in.params = ParamsBuilder()
 	}
 	return in
 }
