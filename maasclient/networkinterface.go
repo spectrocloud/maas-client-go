@@ -210,8 +210,14 @@ func (ni *networkInterfaces) CreateBridge(ctx context.Context, systemID, bridgeN
 	// Set system ID and client for the new interface
 	bridgeInterface.systemID = systemID
 	bridgeInterface.client = ni.client
-	bridgeInterface.apiPath = fmt.Sprintf("/nodes/%s/interfaces/%s/", systemID, bridgeInterface.id)
 	bridgeInterface.params = ParamsBuilder()
+
+	// Set up the API path using the ID from the response
+	// The id field should now be populated from the JSON unmarshaling
+	if bridgeInterface.id != "" {
+		bridgeInterface.apiPath = fmt.Sprintf("/nodes/%s/interfaces/%s/", systemID, bridgeInterface.id)
+		bridgeInterface.interfaceID = bridgeInterface.id
+	}
 
 	return bridgeInterface, nil
 }
