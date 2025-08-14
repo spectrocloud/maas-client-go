@@ -280,6 +280,9 @@ func (c *vmHost) Zone() Zone {
 }
 
 func (c *vmHost) ResourcePool() ResourcePool {
+	if c.data.Pool.Name == "" || c.data.Pool.ID <= 0 {
+		return nil
+	}
 	return &resourcePool{name: c.data.Pool.Name, id: c.data.Pool.ID}
 }
 
