@@ -208,7 +208,7 @@ func (c *vmHost) Update(ctx context.Context, params Params) (VMHost, error) {
 
 	return &vmHost{
 		Controller: c.Controller,
-		systemID:   vmHostData.SystemID,
+		systemID:   c.SystemID(),
 		data:       vmHostData,
 	}, nil
 }
