@@ -206,7 +206,11 @@ func (c *vmHost) Update(ctx context.Context, params Params) (VMHost, error) {
 		return nil, err
 	}
 
-	return c, nil
+	return &vmHost{
+		Controller: c.Controller,
+		systemID:   vmHostData.SystemID,
+		data:       vmHostData,
+	}, nil
 }
 
 func (c *vmHost) Delete(ctx context.Context) error {
