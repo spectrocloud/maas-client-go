@@ -276,7 +276,7 @@ func (c *vmHostMachines) List(ctx context.Context) ([]Machine, error) {
 }
 
 func (c *vmHost) Zone() Zone {
-	if c.data.Zone == nil || c.data.Zone.Name == "" || c.data.Zone.ID == "" {
+	if c.data.Zone.Name == "" || c.data.Zone.ID == 0 {
 		return nil
 	}
 	return &zone{name: c.data.Zone.Name, id: c.data.Zone.ID}
