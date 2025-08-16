@@ -181,19 +181,20 @@ func (c *authenticatedClient) dispatchRequest(req *http.Request) (*http.Response
 }
 
 type authenticatedClientSet struct {
-	client                 *authenticatedClient
-	rackControllers        RackControllers
-	dnsResouceController   DNSResources
-	userController         Users
-	zoneController         Zones
-	sshKeyController       SSHKeys
-	bootController         BootResources
-	domainController       Domains
-	tagController          Tags
-	resourcePoolController ResourcePools
-	spaceController        Spaces
-	machineController      Machines
-	vmHostsController      VMHosts
+	client                      *authenticatedClient
+	rackControllers             RackControllers
+	dnsResouceController        DNSResources
+	userController              Users
+	zoneController              Zones
+	sshKeyController            SSHKeys
+	bootController              BootResources
+	domainController            Domains
+	tagController               Tags
+	resourcePoolController      ResourcePools
+	spaceController             Spaces
+	machineController           Machines
+	networkInterfacesController NetworkInterfaces
+	vmHostsController           VMHosts
 }
 
 func (m *authenticatedClientSet) RackControllers() RackControllers {
@@ -240,6 +241,10 @@ func (m *authenticatedClientSet) Machines() Machines {
 	return m.machineController
 }
 
+func (m *authenticatedClientSet) NetworkInterfaces() NetworkInterfaces {
+	return m.networkInterfacesController
+}
+
 func (m *authenticatedClientSet) VMHosts() VMHosts {
 	return m.vmHostsController
 }
@@ -277,6 +282,7 @@ func NewAuthenticatedClientSet(maasEndpoint, apiKey string, options ...func(clie
 	clientSet.resourcePoolController = NewResourcePoolsClient(client)
 	clientSet.spaceController = NewSpacesClient(client)
 	clientSet.machineController = NewMachinesClient(client)
+	clientSet.networkInterfacesController = NewNetworkInterfacesClient(client)
 	clientSet.vmHostsController = NewVMHostsClient(client)
 
 	return clientSet
