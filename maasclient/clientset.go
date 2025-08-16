@@ -22,10 +22,12 @@ type ClientSetInterface interface {
 	Domains() Domains
 	Tags() Tags
 	Machines() Machines
+	NetworkInterfaces() NetworkInterfaces
 	RackControllers() RackControllers
 	ResourcePools() ResourcePools
 	Spaces() Spaces
 	Users() Users
 	Zones() Zones
 	SSHKeys() SSHKeys
+	VMHosts() VMHosts
 }

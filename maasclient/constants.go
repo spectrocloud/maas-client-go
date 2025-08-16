@@ -52,6 +52,16 @@ const (
 	SwapSizeKey     = "swap_size"
 	HostnameKey     = "hostname"
 	TrueKey         = "true"
+	SubnetKey       = "subnet"
+	IPAddressKey    = "ip_address"
+	ModeKey         = "mode"
+	LinkIDKey       = "id"
+	ParentKey       = "parent"
+
+	// Network interface modes
+	ModeDHCP   = "dhcp"
+	ModeStatic = "static"
+	ModeLinkUp = "link_up"
 
 	// Resource operations
 	Operation                 = "op"
@@ -60,4 +70,7 @@ const (
 	OperationImportBootImages = "import_boot_images"
 	OperationReleaseMachine   = "release"
 	OperationAllocate         = "allocate"
+	OperationLinkSubnet       = "link_subnet"
+	OperationUnlinkSubnet     = "unlink_subnet"
+	OperationCreateBridge     = "create_bridge"
 )
