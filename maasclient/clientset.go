@@ -22,6 +22,7 @@ type ClientSetInterface interface {
 	Domains() Domains
 	Tags() Tags
 	Machines() Machines
+	NetworkInterfaces() NetworkInterfaces
 	RackControllers() RackControllers
 	ResourcePools() ResourcePools
 	Spaces() Spaces
