@@ -242,7 +242,13 @@ func (c *vmHost) Machines() VMHostMachines {
 
 // Implementation of VMComposer interface
 func (c *vmComposer) Compose(ctx context.Context, params Params) (Machine, error) {
-	composePath := fmt.Sprintf("/vm-hosts/%s/?op=compose", c.systemID)
+	composePath := fmt.Sprintf("/vm-hosts/%s/", c.systemID)
+
+	// Ensure op=compose is included in the POST body for proper OAuth signature
+	if params == nil {
+		params = ParamsBuilder()
+	}
+	params = params.Set("op", "compose")
 
 	resp, err := c.client.Post(ctx, composePath, params.Values())
 	if err != nil {
