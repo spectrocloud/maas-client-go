@@ -128,7 +128,7 @@ func (c *vmHosts) List(ctx context.Context, params Params) ([]VMHost, error) {
 		result = append(result, &vmHost{
 			Controller: Controller{
 				client:  c.client,
-				apiPath: fmt.Sprintf("/vm-host/%s/", systemIDStr),
+				apiPath: fmt.Sprintf("/vm-hosts/%s/", systemIDStr),
 				params:  ParamsBuilder(),
 			},
 			systemID: systemIDStr,
@@ -167,7 +167,7 @@ func (c *vmHosts) VMHost(systemID string) VMHost {
 	return &vmHost{
 		Controller: Controller{
 			client:  c.client,
-			apiPath: fmt.Sprintf("/vm-host/%s/", systemID),
+			apiPath: fmt.Sprintf("/vm-hosts/%s/", systemID),
 			params:  ParamsBuilder(),
 		},
 		systemID: systemID,
@@ -222,7 +222,7 @@ func (c *vmHost) Composer() VMComposer {
 	return &vmComposer{
 		Controller: Controller{
 			client:  c.client,
-			apiPath: fmt.Sprintf("/vm-host/%s/", c.systemID),
+			apiPath: fmt.Sprintf("/vm-hosts/%s/", c.systemID),
 			params:  ParamsBuilder(),
 		},
 		systemID: c.systemID,
@@ -233,7 +233,7 @@ func (c *vmHost) Machines() VMHostMachines {
 	return &vmHostMachines{
 		Controller: Controller{
 			client:  c.client,
-			apiPath: fmt.Sprintf("/vm-host/%s/machines/", c.systemID),
+			apiPath: fmt.Sprintf("/vm-hosts/%s/machines/", c.systemID),
 			params:  ParamsBuilder(),
 		},
 		systemID: c.systemID,
@@ -242,7 +242,13 @@ func (c *vmHost) Machines() VMHostMachines {
 
 // Implementation of VMComposer interface
 func (c *vmComposer) Compose(ctx context.Context, params Params) (Machine, error) {
-	composePath := fmt.Sprintf("/vm-host/%s/compose/", c.systemID)
+	composePath := fmt.Sprintf("/vm-hosts/%s/", c.systemID)
+
+	// Ensure op=compose is included in the POST body for proper OAuth signature
+	if params == nil {
+		params = ParamsBuilder()
+	}
+	params = params.Set("op", "compose")
 
 	resp, err := c.client.Post(ctx, composePath, params.Values())
 	if err != nil {
