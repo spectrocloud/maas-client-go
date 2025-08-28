@@ -54,6 +54,12 @@ type Machine interface {
 	TotalStorageGB() float64
 	// GetBootInterfaceType returns the type of the boot interface ("physical", "bridge", "bond", etc.)
 	GetBootInterfaceType() string
+	// ResourcePoolName returns the name of the resource pool, or empty string if not available
+	ResourcePoolName() string
+	// ZoneName returns the name of the zone, or empty string if not available
+	ZoneName() string
+	// BootInterfaceName returns the name of the boot interface, or empty string if not available
+	BootInterfaceName() string
 }
 
 type PowerManagerOn interface {
@@ -201,6 +207,7 @@ type machine struct {
 	systemID          string
 	fqdn              string
 	zone              *zone
+	pool              *resourcePool
 	powerState        string
 	hostname          string
 	ipaddresses       []net.IP
@@ -210,6 +217,7 @@ type machine struct {
 	swapSize          int
 	bootInterfaceID   string
 	bootInterfaceType string  // Type of boot interface (physical, bridge, bond, etc.)
+	bootInterfaceName string  // Name of boot interface (e.g., enp2s0)
 	memory            int     // Memory in MB
 	storageMBDecimal  float64 // Total storage in decimal MB as reported by MAAS (e.g., 250059.35)
 }
@@ -409,23 +417,46 @@ func (m *machine) GetBootInterfaceType() string {
 	return m.bootInterfaceType
 }
 
+// ResourcePoolName returns the name of the resource pool
+func (m *machine) ResourcePoolName() string {
+	if m.pool == nil {
+		return ""
+	}
+	return m.pool.Name()
+}
+
+// ZoneName returns the name of the zone
+func (m *machine) ZoneName() string {
+	if m.zone == nil {
+		return ""
+	}
+	return m.zone.Name()
+}
+
+// BootInterfaceName returns the name of the boot interface
+func (m *machine) BootInterfaceName() string {
+	return m.bootInterfaceName
+}
+
 func (m *machine) UnmarshalJSON(data []byte) error {
 	des := &struct {
-		SystemID      string   `json:"system_id"`
-		FQDNLabel     string   `json:"fqdn"`
-		Zone          *zone    `json:"zone"`
-		PowerState    string   `json:"power_state"`
-		Hostname      string   `json:"hostname"`
-		IpAddresses   []string `json:"ip_addresses"`
-		State         string   `json:"status_name"`
-		OSSystem      string   `json:"osystem"`
-		DistroSeries  string   `json:"distro_series"`
-		SwapSize      int      `json:"swap_size"`
-		Memory        int      `json:"memory"`
-		Storage       float64  `json:"storage"`
+		SystemID      string        `json:"system_id"`
+		FQDNLabel     string        `json:"fqdn"`
+		Zone          *zone         `json:"zone"`
+		Pool          *resourcePool `json:"pool"`
+		PowerState    string        `json:"power_state"`
+		Hostname      string        `json:"hostname"`
+		IpAddresses   []string      `json:"ip_addresses"`
+		State         string        `json:"status_name"`
+		OSSystem      string        `json:"osystem"`
+		DistroSeries  string        `json:"distro_series"`
+		SwapSize      int           `json:"swap_size"`
+		Memory        int           `json:"memory"`
+		Storage       float64       `json:"storage"`
 		BootInterface struct {
 			ID       int      `json:"id"`
 			Type     string   `json:"type"`
+			Name     string   `json:"name"`
 			Children []string `json:"children"`
 		} `json:"boot_interface"`
 	}{}
@@ -438,6 +469,7 @@ func (m *machine) UnmarshalJSON(data []byte) error {
 	m.systemID = des.SystemID
 	m.fqdn = des.FQDNLabel
 	m.zone = des.Zone
+	m.pool = des.Pool
 	m.powerState = des.PowerState
 	m.hostname = des.Hostname
 	for _, ipAddress := range des.IpAddresses {
@@ -453,6 +485,7 @@ func (m *machine) UnmarshalJSON(data []byte) error {
 	// Handle boot interface
 	if des.BootInterface.ID != 0 {
 		m.bootInterfaceID = fmt.Sprintf("%d", des.BootInterface.ID)
+		m.bootInterfaceName = des.BootInterface.Name
 
 		// Simple rule: children present = bridge, children empty/absent = physical
 		if len(des.BootInterface.Children) > 0 {
