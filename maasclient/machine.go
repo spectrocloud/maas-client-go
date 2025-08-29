@@ -41,6 +41,8 @@ type Machine interface {
 	FQDN() string
 	Zone() Zone
 	PowerState() string
+	// PowerType returns the power management type (e.g., "ipmi", "manual", "virsh")
+	PowerType() string
 	Hostname() string
 	IPAddresses() []net.IP
 	State() string
@@ -209,6 +211,7 @@ type machine struct {
 	zone              *zone
 	pool              *resourcePool
 	powerState        string
+	powerType         string // Power management type (e.g., ipmi, manual, virsh)
 	hostname          string
 	ipaddresses       []net.IP
 	state             string
@@ -374,6 +377,10 @@ func (m *machine) PowerState() string {
 	return m.powerState
 }
 
+func (m *machine) PowerType() string {
+	return m.powerType
+}
+
 func (m *machine) Hostname() string {
 	return m.hostname
 }
@@ -445,6 +452,7 @@ func (m *machine) UnmarshalJSON(data []byte) error {
 		Zone          *zone         `json:"zone"`
 		Pool          *resourcePool `json:"pool"`
 		PowerState    string        `json:"power_state"`
+		PowerType     string        `json:"power_type"`
 		Hostname      string        `json:"hostname"`
 		IpAddresses   []string      `json:"ip_addresses"`
 		State         string        `json:"status_name"`
@@ -471,6 +479,7 @@ func (m *machine) UnmarshalJSON(data []byte) error {
 	m.zone = des.Zone
 	m.pool = des.Pool
 	m.powerState = des.PowerState
+	m.powerType = des.PowerType
 	m.hostname = des.Hostname
 	for _, ipAddress := range des.IpAddresses {
 		m.ipaddresses = append(m.ipaddresses, net.ParseIP(ipAddress))
