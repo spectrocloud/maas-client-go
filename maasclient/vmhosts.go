@@ -45,6 +45,7 @@ type VMHost interface {
 	Name() string
 	Type() string // "lxd", "virsh"
 	PowerAddress() string
+	HostSystemID() string // Get the system ID of the host machine (for LXD hosts)
 	Zone() Zone
 	ResourcePool() ResourcePool
 
@@ -304,6 +305,7 @@ func (c *vmHost) SystemID() string            { return c.systemID }
 func (c *vmHost) Name() string                { return c.data.Name }
 func (c *vmHost) Type() string                { return c.data.Type }
 func (c *vmHost) PowerAddress() string        { return c.data.PowerAddress }
+func (c *vmHost) HostSystemID() string        { return c.data.Host.SystemID }
 func (c *vmHost) TotalCores() int             { return c.data.TotalResources.Cores }
 func (c *vmHost) TotalMemory() int            { return c.data.TotalResources.Memory }
 func (c *vmHost) UsedCores() int              { return c.data.UsedResources.Cores }
@@ -321,6 +323,10 @@ type vmHostDetails struct {
 	Type string `json:"type"`
 
 	PowerAddress string `json:"power_address"`
+	Host         struct {
+		SystemID   string `json:"system_id"`
+		Incomplete bool   `json:"__incomplete__,omitempty"`
+	} `json:"host,omitempty"` // LXD host machine reference
 
 	Zone struct {
 		ID   int    `json:"id"`
