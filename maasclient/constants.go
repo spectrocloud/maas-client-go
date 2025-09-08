@@ -33,6 +33,8 @@ const (
 	CPUCountKey     = "cpu_count"
 	MemoryKey       = "mem"
 	PoolLabel       = "pool"
+	NotPodKey       = "not_pod"
+	NotPodTypeKey   = "not_pod_type"
 	OSSystemKey     = "osystem"
 	UserDataKey     = "user_data"
 	DistroSeriesKey = "distro_series"
