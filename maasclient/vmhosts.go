@@ -156,7 +156,7 @@ func (c *vmHosts) Create(ctx context.Context, params Params) (VMHost, error) {
 	return &vmHost{
 		Controller: Controller{
 			client:  c.client,
-			apiPath: fmt.Sprintf("/vm-host/%s/", systemIDStr),
+			apiPath: fmt.Sprintf("/vm-hosts/%s/", systemIDStr),
 			params:  ParamsBuilder(),
 		},
 		systemID: systemIDStr,
