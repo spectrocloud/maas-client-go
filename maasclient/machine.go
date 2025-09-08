@@ -93,6 +93,10 @@ type MachineAllocator interface {
 	WithMemory(memory int) MachineAllocator
 	WithTags(tags []string) MachineAllocator
 	WithResourcePool(pool string) MachineAllocator
+	// WithNotPod excludes pod-backed VM hosts (e.g., LXD/virsh) when true
+	WithNotPod(notPod bool) MachineAllocator
+	// WithNotPodType excludes a specific pod type (e.g., "lxd")
+	WithNotPodType(podType string) MachineAllocator
 }
 
 type MachineDeployer interface {
@@ -155,6 +159,20 @@ func (m *machines) WithMemory(memory int) MachineAllocator {
 
 func (m *machines) WithResourcePool(pool string) MachineAllocator {
 	m.params.Set(PoolLabel, pool)
+	return m
+}
+
+func (m *machines) WithNotPod(notPod bool) MachineAllocator {
+	if notPod {
+		m.params.Set(NotPodKey, TrueKey)
+	}
+	return m
+}
+
+func (m *machines) WithNotPodType(podType string) MachineAllocator {
+	if podType != "" {
+		m.params.Set(NotPodTypeKey, podType)
+	}
 	return m
 }
 
