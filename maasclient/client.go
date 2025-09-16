@@ -251,7 +251,7 @@ func (m *authenticatedClientSet) VMHosts() VMHosts {
 
 func NewAuthenticatedClientSet(maasEndpoint, apiKey string, options ...func(client *authenticatedClientSet)) ClientSetInterface {
 	transport := &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, // #nosec G402 : already addressed in PCP-3389
 		Proxy:           http.ProxyFromEnvironment,
 	}
 
