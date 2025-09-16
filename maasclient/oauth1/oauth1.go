@@ -2,14 +2,15 @@ package oauth1
 
 import (
 	"crypto/hmac"
-	"crypto/sha1"
+	"crypto/sha1" // #nosec G505
 	"encoding/base64"
 	"fmt"
-	guuid "github.com/google/uuid"
 	"net/url"
 	"strconv"
 	"strings"
 	"time"
+
+	guuid "github.com/google/uuid"
 )
 
 type OAuth struct {
