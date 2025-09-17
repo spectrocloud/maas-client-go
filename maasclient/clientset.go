@@ -20,6 +20,7 @@ type ClientSetInterface interface {
 	BootResources() BootResources
 	DNSResources() DNSResources
 	Domains() Domains
+	IPAddresses() IPAddresses
 	Tags() Tags
 	Machines() Machines
 	NetworkInterfaces() NetworkInterfaces
