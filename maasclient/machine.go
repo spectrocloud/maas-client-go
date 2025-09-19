@@ -62,6 +62,8 @@ type Machine interface {
 	ZoneName() string
 	// BootInterfaceName returns the name of the boot interface, or empty string if not available
 	BootInterfaceName() string
+	// Tags returns the list of tag names applied to this machine, if available
+	Tags() []string
 }
 
 type PowerManagerOn interface {
@@ -103,6 +105,8 @@ type MachineDeployer interface {
 	SetOSSystem(ossytem string) MachineDeployer
 	SetUserData(userdata string) MachineDeployer
 	SetDistroSeries(distroseries string) MachineDeployer
+	SetRegisterVMHost(registerVMHost bool) MachineDeployer
+	SetAgentName(agentName string) MachineDeployer
 	Deploy(ctx context.Context) (Machine, error)
 }
 
@@ -237,10 +241,11 @@ type machine struct {
 	distroSeries      string
 	swapSize          int
 	bootInterfaceID   string
-	bootInterfaceType string  // Type of boot interface (physical, bridge, bond, etc.)
-	bootInterfaceName string  // Name of boot interface (e.g., enp2s0)
-	memory            int     // Memory in MB
-	storageMBDecimal  float64 // Total storage in decimal MB as reported by MAAS (e.g., 250059.35)
+	bootInterfaceType string   // Type of boot interface (physical, bridge, bond, etc.)
+	bootInterfaceName string   // Name of boot interface (e.g., enp2s0)
+	memory            int      // Memory in MB
+	storageMBDecimal  float64  // Total storage in decimal MB as reported by MAAS (e.g., 250059.35)
+	tags              []string // Tag names applied to the machine (if provided by MAAS)
 }
 
 func (m *machine) PowerManagerOn() PowerManagerOn {
@@ -274,6 +279,16 @@ func (m *machine) SetUserData(userdata string) MachineDeployer {
 
 func (m *machine) SetDistroSeries(distroseries string) MachineDeployer {
 	m.params.Set(DistroSeriesKey, distroseries)
+	return m
+}
+
+func (m *machine) SetRegisterVMHost(registerVMHost bool) MachineDeployer {
+	m.params.Set(RegisterVMHostKey, strconv.FormatBool(registerVMHost))
+	return m
+}
+
+func (m *machine) SetAgentName(agentName string) MachineDeployer {
+	m.params.Set(AgentNameKey, agentName)
 	return m
 }
 
@@ -463,6 +478,11 @@ func (m *machine) BootInterfaceName() string {
 	return m.bootInterfaceName
 }
 
+// Tags returns the tag names applied to this machine, if available
+func (m *machine) Tags() []string {
+	return m.tags
+}
+
 func (m *machine) UnmarshalJSON(data []byte) error {
 	des := &struct {
 		SystemID      string        `json:"system_id"`
@@ -485,6 +505,8 @@ func (m *machine) UnmarshalJSON(data []byte) error {
 			Name     string   `json:"name"`
 			Children []string `json:"children"`
 		} `json:"boot_interface"`
+		TagNames  []string `json:"tag_names"`
+		TagsField []string `json:"tags"`
 	}{}
 
 	err := json.Unmarshal(data, des)
@@ -508,6 +530,13 @@ func (m *machine) UnmarshalJSON(data []byte) error {
 	m.swapSize = des.SwapSize
 	m.memory = des.Memory
 	m.storageMBDecimal = des.Storage
+
+	// Populate tags if present under either field name
+	if len(des.TagsField) > 0 {
+		m.tags = append([]string{}, des.TagsField...)
+	} else if len(des.TagNames) > 0 {
+		m.tags = append([]string{}, des.TagNames...)
+	}
 
 	// Handle boot interface
 	if des.BootInterface.ID != 0 {

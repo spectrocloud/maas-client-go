@@ -19,6 +19,9 @@ package maasclient
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"net/url"
+	"strings"
 )
 
 const (
@@ -27,6 +30,10 @@ const (
 
 type Tags interface {
 	List(ctx context.Context) ([]Tag, error)
+	// Assign applies the given tag name to the provided machine system IDs
+	Assign(ctx context.Context, tagName string, systemIDs []string) error
+	// Unassign removes the given tag name from the provided machine system IDs
+	Unassign(ctx context.Context, tagName string, systemIDs []string) error
 }
 
 type Tag interface {
@@ -54,6 +61,30 @@ func (ds *tags) List(ctx context.Context) ([]Tag, error) {
 	}
 
 	return tagsStructSliceToInterface(obj, ds.client), nil
+}
+
+func (ds *tags) Assign(ctx context.Context, tagName string, systemIDs []string) error {
+	if tagName == "" || len(systemIDs) == 0 {
+		return nil
+	}
+	params := url.Values{}
+	params.Set("op", "assign")
+	params.Set("machines", strings.Join(systemIDs, ","))
+	path := fmt.Sprintf("%s%s/", ds.apiPath, url.PathEscape(tagName))
+	_, err := ds.client.Post(ctx, path, params)
+	return err
+}
+
+func (ds *tags) Unassign(ctx context.Context, tagName string, systemIDs []string) error {
+	if tagName == "" || len(systemIDs) == 0 {
+		return nil
+	}
+	params := url.Values{}
+	params.Set("op", "remove")
+	params.Set("machines", strings.Join(systemIDs, ","))
+	path := fmt.Sprintf("%s%s/", ds.apiPath, url.PathEscape(tagName))
+	_, err := ds.client.Post(ctx, path, params)
+	return err
 }
 
 func tagsStructSliceToInterface(in []*tag, client Client) []Tag {
