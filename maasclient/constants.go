@@ -75,4 +75,5 @@ const (
 	OperationLinkSubnet       = "link_subnet"
 	OperationUnlinkSubnet     = "unlink_subnet"
 	OperationCreateBridge     = "create_bridge"
+	OperationReleaseIPAddress = "release"
 )

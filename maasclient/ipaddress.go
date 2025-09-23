@@ -23,32 +23,53 @@ import (
 
 type IPAddress interface {
 	IP() net.IP
+	InterfaceSet() []NetworkInterface
 }
 
 type ipaddress struct {
-	ip net.IP
+	Controller
+	ip           net.IP
+	ipString     string
+	interfaceSet []NetworkInterface
 }
 
 func (i *ipaddress) IP() net.IP {
 	return i.ip
 }
 
+func (i *ipaddress) InterfaceSet() []NetworkInterface {
+	return i.interfaceSet
+}
+
 func (i *ipaddress) UnmarshalJSON(data []byte) error {
-	des := &struct {
-		Ip string `json:"ip"`
+	aux := &struct {
+		IPString     string              `json:"ip"`
+		InterfaceSet []*networkInterface `json:"interface_set"`
 	}{}
 
-	err := json.Unmarshal(data, des)
+	err := json.Unmarshal(data, aux)
 	if err != nil {
 		return err
 	}
 
-	i.ip = net.ParseIP(des.Ip)
+	i.ipString = aux.IPString
+	i.ip = net.ParseIP(aux.IPString)
+
+	// Convert network interfaces to interface slice
+	i.interfaceSet = make([]NetworkInterface, len(aux.InterfaceSet))
+	for idx, netIf := range aux.InterfaceSet {
+		i.interfaceSet[idx] = netIf
+	}
 
 	return nil
 }
 
 func ipStructToInterface(in *ipaddress, client Client) IPAddress {
+	in.Controller = Controller{
+		client:  client,
+		apiPath: "/ipaddresses/",
+		params:  ParamsBuilder(),
+	}
 	return in
 }
 
