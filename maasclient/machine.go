@@ -64,6 +64,8 @@ type Machine interface {
 	BootInterfaceName() string
 	// Tags returns the list of tag names applied to this machine, if available
 	Tags() []string
+	// Parent returns the parent system_id when power_type is "lxd", or empty string otherwise
+	Parent() string
 }
 
 type PowerManagerOn interface {
@@ -246,6 +248,7 @@ type machine struct {
 	memory            int      // Memory in MB
 	storageMBDecimal  float64  // Total storage in decimal MB as reported by MAAS (e.g., 250059.35)
 	tags              []string // Tag names applied to the machine (if provided by MAAS)
+	parentSystemID    string   // Parent system_id for LXD VMs
 }
 
 func (m *machine) PowerManagerOn() PowerManagerOn {
@@ -483,6 +486,14 @@ func (m *machine) Tags() []string {
 	return m.tags
 }
 
+// Parent returns the parent system_id when power_type is "lxd", or empty string otherwise
+func (m *machine) Parent() string {
+	if m.powerType == "lxd" {
+		return m.parentSystemID
+	}
+	return ""
+}
+
 func (m *machine) UnmarshalJSON(data []byte) error {
 	des := &struct {
 		SystemID      string        `json:"system_id"`
@@ -505,6 +516,9 @@ func (m *machine) UnmarshalJSON(data []byte) error {
 			Name     string   `json:"name"`
 			Children []string `json:"children"`
 		} `json:"boot_interface"`
+		Parent struct {
+			SystemID string `json:"system_id"`
+		} `json:"parent"`
 		TagNames  []string `json:"tag_names"`
 		TagsField []string `json:"tags"`
 	}{}
@@ -530,6 +544,7 @@ func (m *machine) UnmarshalJSON(data []byte) error {
 	m.swapSize = des.SwapSize
 	m.memory = des.Memory
 	m.storageMBDecimal = des.Storage
+	m.parentSystemID = des.Parent.SystemID
 
 	// Populate tags if present under either field name
 	if len(des.TagsField) > 0 {
