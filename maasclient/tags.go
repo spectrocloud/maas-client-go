@@ -30,6 +30,8 @@ const (
 
 type Tags interface {
 	List(ctx context.Context) ([]Tag, error)
+	// Create creates a new tag with the given name
+	Create(ctx context.Context, tagName string) error
 	// Assign applies the given tag name to the provided machine system IDs
 	Assign(ctx context.Context, tagName string, systemIDs []string) error
 	// Unassign removes the given tag name from the provided machine system IDs
@@ -61,6 +63,16 @@ func (ds *tags) List(ctx context.Context) ([]Tag, error) {
 	}
 
 	return tagsStructSliceToInterface(obj, ds.client), nil
+}
+
+func (ds *tags) Create(ctx context.Context, tagName string) error {
+	if tagName == "" {
+		return nil
+	}
+	params := url.Values{}
+	params.Set("name", tagName)
+	_, err := ds.client.Post(ctx, ds.apiPath, params)
+	return err
 }
 
 func (ds *tags) Assign(ctx context.Context, tagName string, systemIDs []string) error {
