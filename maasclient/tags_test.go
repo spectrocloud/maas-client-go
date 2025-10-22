@@ -14,6 +14,16 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// Test Instructions:
+// 1. Replace the placeholder machine system IDs in the test cases with actual unlocked machines
+// 2. Ensure the MAAS_ENDPOINT and MAAS_API_KEY environment variables are set
+// 3. Run: go test -v ./maasclient -run TestTags
+//
+// To find unlocked machines, you can:
+// - Check MAAS web UI for machines that are not locked
+// - Use MAAS API: GET /MAAS/api/2.0/machines/ and look for machines with "locked": false
+// - Use the list_tags test to see available machines
+
 package maasclient
 
 import (
@@ -21,6 +31,7 @@ import (
 	"fmt"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -63,82 +74,69 @@ func TestTags(t *testing.T) {
 
 	t.Run("assign tag to machines", func(t *testing.T) {
 		// First, create a test tag
-		tagName := "test-assign-tag"
+		tagName := "test-assign-unassign-tag"
 		err := c.Tags().Create(ctx, tagName)
-		assert.Nil(t, err)
+		assert.Nil(t, err, "Failed to create tag")
 
-		// Get a list of machines to test with
-		machines, err := c.Machines().List(ctx, nil)
-		if err != nil || len(machines) == 0 {
-			t.Skip("No machines available for testing Assign")
+		// TODO: Replace with actual machine system IDs you want to test with
+		// These should be unlocked machines that can have tags assigned
+		systemID := "REPLACE_WITH_MACHINE_SYSTEM_ID_1"
+
+		// Skip test if placeholder values are still present
+		if systemID == "REPLACE_WITH_MACHINE_SYSTEM_ID_1" {
+			t.Skip("Please replace placeholder machine system IDs with actual unlocked machines")
 			return
 		}
 
-		// Get system IDs of the first few machines (max 2 for testing)
-		var systemIDs []string
-		for i, machine := range machines {
-			if i >= 2 {
-				break
-			}
-			systemIDs = append(systemIDs, machine.SystemID())
-		}
-
 		// Assign the tag to the machines
-		err = c.Tags().Assign(ctx, tagName, systemIDs)
-		assert.Nil(t, err)
-		fmt.Printf("Successfully assigned tag '%s' to machines: %v\n", tagName, systemIDs)
+		err = c.Tags().Assign(ctx, tagName, systemID)
+		assert.Nil(t, err, "Failed to assign tag")
+		fmt.Printf("Successfully assigned tag '%s' to machine: %v\n", tagName, systemID)
 
-		// Verify by getting machine details
-		for _, systemID := range systemIDs {
-			machine := c.Machines().Machine(systemID)
-			detailedMachine, err := machine.Get(ctx)
-			if err == nil {
-				tags := detailedMachine.Tags()
-				fmt.Printf("Machine %s tags: %v\n", systemID, tags)
-			}
-		}
+		// Wait a bit for the assignment to propagate
+		time.Sleep(2 * time.Second)
+
+		machine := c.Machines().Machine(systemID)
+		detailedMachine, err := machine.Get(ctx)
+		assert.Nil(t, err, "Failed to get machine details for %s", systemID)
+		tags := detailedMachine.Tags()
+		assert.Contains(t, tags, tagName,
+			"Tag '%s' not found on machine %s. Machine tags: %v", tagName, systemID, tags)
+		fmt.Printf("✅ Verified tag '%s' is present on machine %s\n", tagName, systemID)
 	})
 
 	t.Run("unassign tag from machines", func(t *testing.T) {
 		// Create a test tag
-		tagName := "test-unassign-tag"
+		tagName := "test-assign-unassign-tag"
 		err := c.Tags().Create(ctx, tagName)
-		assert.Nil(t, err)
+		assert.Nil(t, err, "Failed to create tag")
 
-		// Get a list of machines to test with
-		machines, err := c.Machines().List(ctx, nil)
-		if err != nil || len(machines) == 0 {
-			t.Skip("No machines available for testing Unassign")
+		// TODO: Replace with actual machine system ID you want to test with
+		// This should be an unlocked machine that can have tags assigned
+		systemID := "REPLACE_WITH_MACHINE_SYSTEM_ID_1"
+
+		// Skip test if placeholder values are still present
+		if systemID == "REPLACE_WITH_MACHINE_SYSTEM_ID_1" {
+			t.Skip("Please replace placeholder machine system ID with actual unlocked machine")
 			return
 		}
 
-		// Get system IDs of the first few machines (max 2 for testing)
-		var systemIDs []string
-		for i, machine := range machines {
-			if i >= 2 {
-				break
-			}
-			systemIDs = append(systemIDs, machine.SystemID())
-		}
-
-		// First assign the tag
-		err = c.Tags().Assign(ctx, tagName, systemIDs)
-		assert.Nil(t, err)
-		fmt.Printf("Assigned tag '%s' to machines: %v\n", tagName, systemIDs)
-
 		// Now unassign the tag
-		err = c.Tags().Unassign(ctx, tagName, systemIDs)
-		assert.Nil(t, err)
-		fmt.Printf("Successfully unassigned tag '%s' from machines: %v\n", tagName, systemIDs)
+		err = c.Tags().Unassign(ctx, tagName, systemID)
+		assert.Nil(t, err, "Failed to unassign tag")
+		fmt.Printf("Successfully unassigned tag '%s' from machine: %v\n", tagName, systemID)
 
-		// Verify by getting machine details
-		for _, systemID := range systemIDs {
-			machine := c.Machines().Machine(systemID)
-			detailedMachine, err := machine.Get(ctx)
-			if err == nil {
-				tags := detailedMachine.Tags()
-				fmt.Printf("Machine %s tags after unassign: %v\n", systemID, tags)
-			}
-		}
+		// Wait a bit for the unassignment to propagate
+		time.Sleep(2 * time.Second)
+
+		// Verify the tag was removed by checking machine details
+		machine := c.Machines().Machine(systemID)
+		detailedMachine, err := machine.Get(ctx)
+		assert.Nil(t, err, "Failed to get machine details for %s", systemID)
+
+		machinetags := detailedMachine.Tags()
+		assert.NotContains(t, machinetags, tagName,
+			"Tag '%s' should not be present on machine %s after unassign. Machine tags: %v", tagName, systemID, machinetags)
+		fmt.Printf("✅ Verified tag '%s' is removed from machine %s\n", tagName, systemID)
 	})
 }
