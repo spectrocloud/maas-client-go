@@ -21,7 +21,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
-	"strings"
 )
 
 const (
@@ -32,10 +31,10 @@ type Tags interface {
 	List(ctx context.Context) ([]Tag, error)
 	// Create creates a new tag with the given name
 	Create(ctx context.Context, tagName string) error
-	// Assign applies the given tag name to the provided machine system IDs
-	Assign(ctx context.Context, tagName string, systemIDs []string) error
-	// Unassign removes the given tag name from the provided machine system IDs
-	Unassign(ctx context.Context, tagName string, systemIDs []string) error
+	// Assign applies the given tag name to the provided machine system ID
+	Assign(ctx context.Context, tagName string, systemID string) error
+	// Unassign removes the given tag name from the provided machine system ID
+	Unassign(ctx context.Context, tagName string, systemID string) error
 }
 
 type Tag interface {
@@ -75,26 +74,25 @@ func (ds *tags) Create(ctx context.Context, tagName string) error {
 	return err
 }
 
-func (ds *tags) Assign(ctx context.Context, tagName string, systemIDs []string) error {
-	if tagName == "" || len(systemIDs) == 0 {
+func (ds *tags) Assign(ctx context.Context, tagName string, systemID string) error {
+	if tagName == "" || systemID == "" {
 		return nil
 	}
 	params := url.Values{}
-	params.Set("op", "assign")
-	params.Set("machines", strings.Join(systemIDs, ","))
-	path := fmt.Sprintf("%s%s/", ds.apiPath, url.PathEscape(tagName))
+	params.Set("add", systemID)
+	path := fmt.Sprintf("%s%s/op-update_nodes", ds.apiPath, url.PathEscape(tagName))
 	_, err := ds.client.Post(ctx, path, params)
 	return err
+
 }
 
-func (ds *tags) Unassign(ctx context.Context, tagName string, systemIDs []string) error {
-	if tagName == "" || len(systemIDs) == 0 {
+func (ds *tags) Unassign(ctx context.Context, tagName string, systemID string) error {
+	if tagName == "" || systemID == "" {
 		return nil
 	}
 	params := url.Values{}
-	params.Set("op", "remove")
-	params.Set("machines", strings.Join(systemIDs, ","))
-	path := fmt.Sprintf("%s%s/", ds.apiPath, url.PathEscape(tagName))
+	params.Set("remove", systemID)
+	path := fmt.Sprintf("%s%s/op-update_nodes", ds.apiPath, url.PathEscape(tagName))
 	_, err := ds.client.Post(ctx, path, params)
 	return err
 }
