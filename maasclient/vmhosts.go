@@ -267,7 +267,11 @@ func (c *vmComposer) Compose(ctx context.Context, params Params) (Machine, error
 
 // Implementation of VMHostMachines interface
 func (c *vmHostMachines) List(ctx context.Context) ([]Machine, error) {
-	resp, err := c.client.Get(ctx, c.apiPath, url.Values{})
+	// Use vm-hosts op pattern: GET /vm-hosts/<id>/?op=machines
+	q := url.Values{}
+	q.Set("op", "machines")
+	base := fmt.Sprintf("/vm-hosts/%s/", c.systemID)
+	resp, err := c.client.Get(ctx, base, q)
 	if err != nil {
 		return nil, err
 	}
