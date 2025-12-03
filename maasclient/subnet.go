@@ -23,6 +23,7 @@ type Subnet interface {
 	Name() string
 	Space() string
 	VLAN() VLAN
+	CIDR() string
 }
 
 type subnet struct {
@@ -30,6 +31,7 @@ type subnet struct {
 	name  string
 	space string
 	vlan  *vLAN
+	cidr  string
 }
 
 func (s *subnet) ID() int {
@@ -48,12 +50,17 @@ func (s *subnet) VLAN() VLAN {
 	return s.vlan
 }
 
+func (s *subnet) CIDR() string {
+	return s.cidr
+}
+
 func (s *subnet) UnmarshalJSON(data []byte) error {
 	des := &struct {
 		Id    int    `json:"id"`
 		Name  string `json:"name"`
 		Space string `json:"space"`
 		Vlan  *vLAN  `json:"vlan"`
+		Cidr  string `json:"cidr"`
 	}{}
 
 	err := json.Unmarshal(data, des)
@@ -65,6 +72,7 @@ func (s *subnet) UnmarshalJSON(data []byte) error {
 	s.name = des.Name
 	s.space = des.Space
 	s.vlan = des.Vlan
+	s.cidr = des.Cidr
 
 	return nil
 }

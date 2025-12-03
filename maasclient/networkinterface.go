@@ -31,6 +31,8 @@ type NetworkInterfaces interface {
 	Interface(systemID, interfaceID string) NetworkInterface
 	// SetBootInterfaceStaticIP sets a static IP on the boot interface directly
 	SetBootInterfaceStaticIP(ctx context.Context, systemID, ipAddress string) error
+	// SetStaticIPOnInterfaceID sets a static IP on a specific interface by interface ID
+	SetStaticIPOnInterfaceID(ctx context.Context, systemID, interfaceID, ipAddress string) error
 	// CreateBridge creates a bridge interface on the specified parent interface
 	CreateBridge(ctx context.Context, systemID, bridgeName, parentInterfaceID string) (NetworkInterface, error)
 	// CreateBootInterfaceBridge creates a bridge on the machine's boot interface
@@ -184,6 +186,20 @@ func (ni *networkInterfaces) SetBootInterfaceStaticIP(ctx context.Context, syste
 
 	// Use the enhanced SetStaticIP that handles both direct links and bridge scenarios
 	return bootInterface.SetStaticIP(ctx, ipAddress)
+}
+
+func (ni *networkInterfaces) SetStaticIPOnInterfaceID(ctx context.Context, systemID, interfaceID, ipAddress string) error {
+	// Get the specific interface
+	iface := ni.Interface(systemID, interfaceID)
+
+	// Populate the interface data by calling Get()
+	iface, err := iface.Get(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get interface details: %v", err)
+	}
+
+	// Use the enhanced SetStaticIP that handles both direct links and bridge scenarios
+	return iface.SetStaticIP(ctx, ipAddress)
 }
 
 func (ni *networkInterfaces) CreateBridge(ctx context.Context, systemID, bridgeName, parentInterfaceID string) (NetworkInterface, error) {
