@@ -193,13 +193,13 @@ func (ni *networkInterfaces) SetStaticIPOnInterfaceID(ctx context.Context, syste
 	iface := ni.Interface(systemID, interfaceID)
 
 	// Populate the interface data by calling Get()
-	iface, err := iface.Get(ctx)
+	populatedIface, err := iface.Get(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get interface details: %v", err)
 	}
 
 	// Use the enhanced SetStaticIP that handles both direct links and bridge scenarios
-	return iface.SetStaticIP(ctx, ipAddress)
+	return populatedIface.SetStaticIP(ctx, ipAddress)
 }
 
 func (ni *networkInterfaces) CreateBridge(ctx context.Context, systemID, bridgeName, parentInterfaceID string) (NetworkInterface, error) {
