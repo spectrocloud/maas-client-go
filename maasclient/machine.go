@@ -47,6 +47,7 @@ type Machine interface {
 	IPAddresses() []net.IP
 	State() string
 	OSSystem() string
+	DeployedAtMemory() bool
 	DistroSeries() string
 	SwapSize() int
 	PowerManagerOn() PowerManagerOn
@@ -109,6 +110,7 @@ type MachineDeployer interface {
 	SetDistroSeries(distroseries string) MachineDeployer
 	SetRegisterVMHost(registerVMHost bool) MachineDeployer
 	SetAgentName(agentName string) MachineDeployer
+	SetEphemeralDeploy(ephemeralDeploy bool) MachineDeployer
 	Deploy(ctx context.Context) (Machine, error)
 }
 
@@ -249,6 +251,7 @@ type machine struct {
 	storageMBDecimal  float64  // Total storage in decimal MB as reported by MAAS (e.g., 250059.35)
 	tags              []string // Tag names applied to the machine (if provided by MAAS)
 	parentSystemID    string   // Parent system_id for LXD VMs
+	ephemeralDeploy   bool     // Machine will be deployed in memory even if it has disks
 }
 
 func (m *machine) PowerManagerOn() PowerManagerOn {
@@ -287,6 +290,11 @@ func (m *machine) SetDistroSeries(distroseries string) MachineDeployer {
 
 func (m *machine) SetRegisterVMHost(registerVMHost bool) MachineDeployer {
 	m.params.Set(RegisterVMHostKey, strconv.FormatBool(registerVMHost))
+	return m
+}
+
+func (m *machine) SetEphemeralDeploy(ephemeralDeploy bool) MachineDeployer {
+	m.params.Set(EphemeralDeployKey, strconv.FormatBool(ephemeralDeploy))
 	return m
 }
 
@@ -437,6 +445,9 @@ func (m *machine) DistroSeries() string {
 	return m.distroSeries
 }
 
+func (m *machine) DeployedAtMemory() bool {
+	return m.ephemeralDeploy
+}
 func (m *machine) SwapSize() int {
 	return m.swapSize
 }
