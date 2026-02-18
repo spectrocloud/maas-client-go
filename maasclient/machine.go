@@ -47,7 +47,7 @@ type Machine interface {
 	IPAddresses() []net.IP
 	State() string
 	OSSystem() string
-	DeployedAtMemory() bool
+	DeployedInMemory() bool
 	DistroSeries() string
 	SwapSize() int
 	PowerManagerOn() PowerManagerOn
@@ -445,7 +445,7 @@ func (m *machine) DistroSeries() string {
 	return m.distroSeries
 }
 
-func (m *machine) DeployedAtMemory() bool {
+func (m *machine) DeployedInMemory() bool {
 	return m.ephemeralDeploy
 }
 func (m *machine) SwapSize() int {
