@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"strings"
 )
 
 // NetworkInterfaces provides methods to interact with machine network interfaces
@@ -41,8 +42,19 @@ type NetworkInterfaces interface {
 type NetworkInterface interface {
 	// Get retrieves the interface details
 	Get(ctx context.Context) (NetworkInterface, error)
-	// LinkSubnet links a subnet to this interface
+	// Update sends a PUT to the interface endpoint with the given params (e.g. name, vlan, ip_assignment, ip_address).
+	// Canonical gomaasclient uses this; the MAAS UI may use PUT when saving "Physical Interface" on a deployed machine.
+	// If your MAAS allows interface PUT in Deployed state, use this to change subnet/link without release.
+	Update(ctx context.Context, params Params) error
+	// LinkSubnet links a subnet to this interface (with IP = static; no IP = auto per LinkSubnetWithMode).
 	LinkSubnet(ctx context.Context, subnetID string, ipAddress string) error
+	// LinkSubnetWithMode links a subnet using an explicit mode: auto, dhcp, static, or link_up.
+	// For mode "static", ipAddress is optional (MAAS auto-selects if empty). For other modes, ipAddress is ignored.
+	// Use mode "auto" for managed subnets to get MAAS-assigned static IP at deploy without DHCP on the wire (avoids DHCP-provided routes).
+	LinkSubnetWithMode(ctx context.Context, subnetID string, mode string, ipAddress string) error
+	// LinkSubnetWithForce links a subnet and deletes other links on the interface (MAAS force=true).
+	// Use on Deployed machines where UnlinkSubnet is rejected (409); the UI uses this path.
+	LinkSubnetWithForce(ctx context.Context, subnetID string, ipAddress string) error
 	// UnlinkSubnet unlinks a subnet from this interface
 	UnlinkSubnet(ctx context.Context, linkID string) error
 	// UpdateIPConfiguration updates an existing link's IP configuration directly
@@ -262,17 +274,36 @@ func (ni *networkInterface) Get(ctx context.Context) (NetworkInterface, error) {
 	return ni, nil
 }
 
+func (ni *networkInterface) Update(ctx context.Context, params Params) error {
+	if params == nil {
+		return fmt.Errorf("params required for Update")
+	}
+	res, err := ni.client.PutParams(ctx, ni.apiPath, params.Values())
+	if err != nil {
+		return err
+	}
+	return unMarshalJson(res, ni)
+}
+
 func (ni *networkInterface) LinkSubnet(ctx context.Context, subnetID string, ipAddress string) error {
+	return ni.LinkSubnetWithMode(ctx, subnetID, "", ipAddress)
+}
+
+func (ni *networkInterface) LinkSubnetWithMode(ctx context.Context, subnetID string, mode string, ipAddress string) error {
 	ni.params.Reset()
 	ni.params.Set(Operation, OperationLinkSubnet)
 	ni.params.Set(SubnetKey, subnetID)
 
-	// Set mode based on whether IP address is provided
 	if ipAddress != "" {
+		// Address provided → use static with this IP
+		ni.params.Set(ModeKey, ModeStatic)
 		ni.params.Set(IPAddressKey, ipAddress)
-		ni.params.Set(ModeKey, ModeStatic) // Static mode when IP is provided
 	} else {
-		ni.params.Set(ModeKey, ModeDHCP) // DHCP mode when no IP
+		// No address → use input mode, or default to auto
+		if mode == "" {
+			mode = ModeAuto
+		}
+		ni.params.Set(ModeKey, mode)
 	}
 
 	res, err := ni.client.Post(ctx, ni.apiPath, ni.params.Values())
@@ -280,6 +311,24 @@ func (ni *networkInterface) LinkSubnet(ctx context.Context, subnetID string, ipA
 		return err
 	}
 
+	return unMarshalJson(res, nil)
+}
+
+func (ni *networkInterface) LinkSubnetWithForce(ctx context.Context, subnetID string, ipAddress string) error {
+	ni.params.Reset()
+	ni.params.Set(Operation, OperationLinkSubnet)
+	ni.params.Set(SubnetKey, subnetID)
+	ni.params.Set(ForceKey, TrueKey)
+	if ipAddress != "" {
+		ni.params.Set(IPAddressKey, ipAddress)
+		ni.params.Set(ModeKey, ModeStatic)
+	} else {
+		ni.params.Set(ModeKey, ModeDHCP)
+	}
+	res, err := ni.client.Post(ctx, ni.apiPath, ni.params.Values())
+	if err != nil {
+		return err
+	}
 	return unMarshalJson(res, nil)
 }
 
@@ -315,33 +364,38 @@ func (ni *networkInterface) UpdateIPConfiguration(ctx context.Context, config IP
 		}
 	}
 
-	// MAAS doesn't have update_link operation, so we unlink and relink
-	// First unlink the existing configuration
+	subnetID := *config.SubnetID
+
+	// MAAS doesn't have update_link operation. Try unlink then link first.
+	// Unlink is only allowed when machine is New, Ready, Allocated, or Broken (not Deployed).
 	err := ni.UnlinkSubnet(ctx, config.LinkID)
 	if err != nil {
+		errStr := err.Error()
+		// When machine is Deployed, MAAS may return 409 for unlink. Some MAAS versions allow link_subnet with force=true on Deployed (replaces links in one call; UI may use this). Others reject both unlink and link when Deployed.
+		if strings.Contains(errStr, "409") || strings.Contains(errStr, "not New, Ready, Allocated, or Broken") {
+			var ipAddr string
+			if config.Mode == ModeStatic && config.IPAddress != nil {
+				ipAddr = *config.IPAddress
+			}
+			return ni.LinkSubnetWithForce(ctx, subnetID, ipAddr)
+		}
 		return fmt.Errorf("failed to unlink existing configuration: %w", err)
 	}
 
 	// Then link with new configuration
-	subnetID := *config.SubnetID
-
-	// For static mode, use the IP address; for DHCP, use empty string
 	if config.Mode == ModeStatic {
 		ipAddress := *config.IPAddress
 		return ni.LinkSubnet(ctx, subnetID, ipAddress)
-	} else {
-		// For DHCP or other modes
-		ni.params.Reset()
-		ni.params.Set(Operation, OperationLinkSubnet)
-		ni.params.Set(SubnetKey, subnetID)
-		ni.params.Set(ModeKey, config.Mode)
-
-		res, err := ni.client.Post(ctx, ni.apiPath, ni.params.Values())
-		if err != nil {
-			return err
-		}
-		return unMarshalJson(res, nil)
 	}
+	ni.params.Reset()
+	ni.params.Set(Operation, OperationLinkSubnet)
+	ni.params.Set(SubnetKey, subnetID)
+	ni.params.Set(ModeKey, config.Mode)
+	res, err := ni.client.Post(ctx, ni.apiPath, ni.params.Values())
+	if err != nil {
+		return err
+	}
+	return unMarshalJson(res, nil)
 }
 
 func (ni *networkInterface) SetStaticIP(ctx context.Context, ipAddress string) error {
@@ -522,6 +576,7 @@ func (ni *networkInterface) UnmarshalJSON(data []byte) error {
 
 func (link *networkInterfaceLink) UnmarshalJSON(data []byte) error {
 	// First try to unmarshal with int ID (real MAAS API)
+	// Note: Subnet JSON in link response includes CIDR field
 	auxInt := &struct {
 		ID        int     `json:"id"`
 		Mode      string  `json:"mode"`
