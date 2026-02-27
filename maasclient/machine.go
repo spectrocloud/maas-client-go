@@ -221,6 +221,10 @@ func (m *machines) Machine(systemId string) Machine {
 			apiPath: fmt.Sprintf("/machines/%s/", systemId),
 			params:  ParamsBuilder(),
 		},
+		// systemID must be explicitly set here. Without it, SystemID() returns empty string.
+		// This caused a bug where Compose() returned machines with empty SystemID, preventing the
+		// providerID from being saved.
+		systemID: systemId,
 	}
 }
 
