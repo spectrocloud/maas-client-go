@@ -27,6 +27,7 @@ type ClientSetInterface interface {
 	RackControllers() RackControllers
 	ResourcePools() ResourcePools
 	Spaces() Spaces
+	Subnets() Subnets
 	Users() Users
 	Zones() Zones
 	SSHKeys() SSHKeys

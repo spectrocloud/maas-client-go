@@ -63,10 +63,12 @@ const (
 	ParentKey          = "parent"
 	EphemeralDeployKey = "ephemeral_deploy"
 
-	// Network interface modes
-	ModeDHCP   = "dhcp"
-	ModeStatic = "static"
-	ModeLinkUp = "link_up"
+	// Network interface modes for link_subnet (MAAS API: AUTO, DHCP, STATIC, LINK_UP).
+	// Use lowercase to match existing API usage. See https://maas.io/docs/interfaces
+	ModeAuto   = "auto"   // MAAS assigns static IP from managed subnet at deploy; no DHCP on wire (avoids DHCP-provided routes)
+	ModeDHCP   = "dhcp"   // Interface uses DHCP on the subnet
+	ModeStatic = "static" // Static IP (provide ip_address or MAAS auto-selects from subnet)
+	ModeLinkUp = "link_up" // Bring interface up on subnet with no IP
 
 	// Resource operations
 	Operation                 = "op"
