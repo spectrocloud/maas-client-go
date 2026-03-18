@@ -192,6 +192,7 @@ type authenticatedClientSet struct {
 	tagController               Tags
 	resourcePoolController      ResourcePools
 	spaceController             Spaces
+	subnetsController           Subnets
 	machineController           Machines
 	networkInterfacesController NetworkInterfaces
 	ipAddressesController       IPAddresses
@@ -236,6 +237,10 @@ func (m *authenticatedClientSet) ResourcePools() ResourcePools {
 
 func (m *authenticatedClientSet) Spaces() Spaces {
 	return m.spaceController
+}
+
+func (m *authenticatedClientSet) Subnets() Subnets {
+	return m.subnetsController
 }
 
 func (m *authenticatedClientSet) Machines() Machines {
@@ -286,6 +291,7 @@ func NewAuthenticatedClientSet(maasEndpoint, apiKey string, options ...func(clie
 	clientSet.domainController = NewDomainsClient(client)
 	clientSet.resourcePoolController = NewResourcePoolsClient(client)
 	clientSet.spaceController = NewSpacesClient(client)
+	clientSet.subnetsController = NewSubnetsClient(client)
 	clientSet.machineController = NewMachinesClient(client)
 	clientSet.networkInterfacesController = NewNetworkInterfacesClient(client)
 	clientSet.ipAddressesController = NewIPAddressesClient(client)
