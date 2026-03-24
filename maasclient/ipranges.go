@@ -52,7 +52,12 @@ func (r *ipRange) Type() string     { return r.typ }
 func (r *ipRange) StartIP() string  { return r.startIP }
 func (r *ipRange) EndIP() string    { return r.endIP }
 func (r *ipRange) Comment() string  { return r.comment }
-func (r *ipRange) Subnet() Subnet   { return r.subnet }
+func (r *ipRange) Subnet() Subnet {
+	if r.subnet == nil {
+		return nil
+	}
+	return r.subnet
+}
 
 func (r *ipRange) UnmarshalJSON(data []byte) error {
 	des := &struct {
@@ -125,7 +130,12 @@ func (r *ipRanges) List(ctx context.Context) ([]IPRange, error) {
 	return ipRangeSliceToInterface(obj), nil
 }
 
-// ListBySubnet returns all IP ranges for the given subnet ID
+// ListBySubnet returns all IPRange objects belonging to the given subnet ID.
+// Note: The MAAS API (GET /ipranges/) does not support server-side filtering
+// by subnet; all ranges are fetched and filtered client-side.
+// For deployments with many IP ranges, prefer Subnets().GetReservedIPRanges()
+// or GetUnreservedIPRanges() which hit subnet-scoped endpoints and return
+// only {start, end, num_addresses}.
 func (r *ipRanges) ListBySubnet(ctx context.Context, subnetID int) ([]IPRange, error) {
 	all, err := r.List(ctx)
 	if err != nil {
@@ -161,7 +171,10 @@ func (r *ipRanges) IsIPInRange(ctx context.Context, subnetID int, ip string) (bo
 	return false, nil
 }
 
-// ipBetween returns true if check is within [start, end] inclusive
+// ipBetween returns true if check is within [start, end] inclusive.
+// It normalises all three addresses to the same address family:
+// 4-byte for IPv4 ranges, 16-byte for IPv6 ranges. A cross-family
+// comparison (IPv4 check vs IPv6 range or vice-versa) always returns false.
 func ipBetween(startStr, endStr string, check net.IP) bool {
 	start := net.ParseIP(startStr)
 	end := net.ParseIP(endStr)
@@ -169,10 +182,23 @@ func ipBetween(startStr, endStr string, check net.IP) bool {
 		return false
 	}
 
-	// Normalise to 16-byte representation for consistent comparison
-	check = check.To16()
-	start = start.To16()
-	end = end.To16()
+	if start.To4() != nil {
+		// IPv4 range — use 4-byte form to avoid IPv4-mapped IPv6 ambiguity
+		start = start.To4()
+		end = end.To4()
+		if check.To4() == nil {
+			return false // check is IPv6; can't be in an IPv4 range
+		}
+		check = check.To4()
+	} else {
+		// IPv6 range
+		start = start.To16()
+		end = end.To16()
+		if check.To4() != nil {
+			return false // check is IPv4; can't be in an IPv6 range
+		}
+		check = check.To16()
+	}
 
 	return bytes.Compare(check, start) >= 0 && bytes.Compare(check, end) <= 0
 }

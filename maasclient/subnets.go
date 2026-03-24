@@ -19,12 +19,21 @@ package maasclient
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/url"
 )
 
 const (
 	SubnetsAPIPath = "/subnets/"
 )
+
+// SubnetIPRange represents a lightweight IP range returned by the subnet-scoped endpoints
+// /subnets/{id}/reserved_ip_ranges and /subnets/{id}/unreserved_ip_ranges.
+type SubnetIPRange struct {
+	Start        net.IP `json:"start"`
+	End          net.IP `json:"end"`
+	NumAddresses int    `json:"num_addresses"`
+}
 
 // SubnetIPAddress represents an IP address entry from a subnet's ip_addresses endpoint
 type SubnetIPAddress struct {
@@ -45,6 +54,10 @@ type Subnets interface {
 	GetIPAddresses(ctx context.Context, subnetID int) ([]SubnetIPAddress, error)
 	// IsIPInUse returns true if the given IP is tracked in the given subnet
 	IsIPInUse(ctx context.Context, subnetID int, ip string) (bool, error)
+	// GetReservedIPRanges returns the reserved IP ranges for the given subnet
+	GetReservedIPRanges(ctx context.Context, subnetID int) ([]SubnetIPRange, error)
+	// GetUnreservedIPRanges returns the unreserved (free) IP ranges for the given subnet
+	GetUnreservedIPRanges(ctx context.Context, subnetID int) ([]SubnetIPRange, error)
 }
 
 // subnets controller implementation
@@ -116,6 +129,36 @@ func (s *subnets) GetIPAddresses(ctx context.Context, subnetID int) ([]SubnetIPA
 	}
 
 	return ipAddresses, nil
+}
+
+// GetReservedIPRanges returns the reserved IP ranges for the given subnet
+func (s *subnets) GetReservedIPRanges(ctx context.Context, subnetID int) ([]SubnetIPRange, error) {
+	path := fmt.Sprintf("%s%d/reserved_ip_ranges", s.apiPath, subnetID)
+	res, err := s.client.Get(ctx, path, url.Values{})
+	if err != nil {
+		return nil, err
+	}
+
+	var ranges []SubnetIPRange
+	if err = unMarshalJson(res, &ranges); err != nil {
+		return nil, err
+	}
+	return ranges, nil
+}
+
+// GetUnreservedIPRanges returns the unreserved (free) IP ranges for the given subnet
+func (s *subnets) GetUnreservedIPRanges(ctx context.Context, subnetID int) ([]SubnetIPRange, error) {
+	path := fmt.Sprintf("%s%d/unreserved_ip_ranges", s.apiPath, subnetID)
+	res, err := s.client.Get(ctx, path, url.Values{})
+	if err != nil {
+		return nil, err
+	}
+
+	var ranges []SubnetIPRange
+	if err = unMarshalJson(res, &ranges); err != nil {
+		return nil, err
+	}
+	return ranges, nil
 }
 
 // IsIPInUse returns true if the given IP is tracked (in any alloc state) in the given subnet
