@@ -19,7 +19,6 @@ package maasclient
 import (
 	"context"
 	"fmt"
-	"net"
 	"net/url"
 )
 
@@ -30,8 +29,8 @@ const (
 // SubnetIPRange represents a lightweight IP range returned by the subnet-scoped endpoints
 // /subnets/{id}/reserved_ip_ranges and /subnets/{id}/unreserved_ip_ranges.
 type SubnetIPRange struct {
-	Start        net.IP `json:"start"`
-	End          net.IP `json:"end"`
+	Start        string `json:"start"`
+	End          string `json:"end"`
 	NumAddresses int    `json:"num_addresses"`
 }
 
