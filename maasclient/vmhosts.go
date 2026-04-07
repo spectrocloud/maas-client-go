@@ -61,6 +61,7 @@ type VMHost interface {
 	Capabilities() []string
 	Projects() []string
 	StoragePools() []StoragePool
+	Tags() []string
 }
 
 // VMComposer interface for composing VMs on a VM host
@@ -315,6 +316,7 @@ func (c *vmHost) AvailableMemory() int        { return c.data.AvailableResources
 func (c *vmHost) Capabilities() []string      { return c.data.Capabilities }
 func (c *vmHost) Projects() []string          { return c.data.Projects }
 func (c *vmHost) StoragePools() []StoragePool { return c.data.StoragePools }
+func (c *vmHost) Tags() []string              { return c.data.Tags }
 
 // Response structures for API unmarshaling
 type vmHostDetails struct {
@@ -355,6 +357,7 @@ type vmHostDetails struct {
 
 	Capabilities []string `json:"capabilities"`
 	Projects     []string `json:"projects"`
+	Tags         []string `json:"tags"`
 
 	StoragePools []StoragePool `json:"storage_pools"`
 }

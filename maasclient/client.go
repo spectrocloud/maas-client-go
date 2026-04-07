@@ -197,6 +197,7 @@ type authenticatedClientSet struct {
 	networkInterfacesController NetworkInterfaces
 	ipAddressesController       IPAddresses
 	vmHostsController           VMHosts
+	ipRangesController          IPRanges
 }
 
 func (m *authenticatedClientSet) RackControllers() RackControllers {
@@ -259,6 +260,10 @@ func (m *authenticatedClientSet) VMHosts() VMHosts {
 	return m.vmHostsController
 }
 
+func (m *authenticatedClientSet) IPRanges() IPRanges {
+	return m.ipRangesController
+}
+
 func NewAuthenticatedClientSet(maasEndpoint, apiKey string, options ...func(client *authenticatedClientSet)) ClientSetInterface {
 	transport := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, // #nosec G402 : already addressed in PCP-3389
@@ -296,6 +301,7 @@ func NewAuthenticatedClientSet(maasEndpoint, apiKey string, options ...func(clie
 	clientSet.networkInterfacesController = NewNetworkInterfacesClient(client)
 	clientSet.ipAddressesController = NewIPAddressesClient(client)
 	clientSet.vmHostsController = NewVMHostsClient(client)
+	clientSet.ipRangesController = NewIPRangesClient(client)
 
 	return clientSet
 }
