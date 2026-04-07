@@ -53,9 +53,11 @@ type NetworkInterface interface {
 	// LinkSubnetWithMode links a subnet using an explicit mode: auto, dhcp, static, or link_up.
 	// For mode "static", ipAddress is optional (MAAS auto-selects if empty). For other modes, ipAddress is ignored.
 	// Use mode "auto" for managed subnets to get MAAS-assigned static IP at deploy without DHCP on the wire (avoids DHCP-provided routes).
-	// Set force=true on Deployed machines where UnlinkSubnet is rejected (409); MAAS deletes other links in one call.
-	// Defaults mode to ModeAuto if empty.
-	LinkSubnetWithMode(ctx context.Context, subnetID string, mode string, ipAddress string, force bool) error
+	LinkSubnetWithMode(ctx context.Context, subnetID string, mode string, ipAddress string) error
+	// LinkSubnetWithForce links a subnet and deletes other links on the interface (MAAS force=true).
+	// Use on Deployed machines where UnlinkSubnet is rejected (409); the UI uses this path.
+	// mode follows the same semantics as LinkSubnetWithMode; defaults to ModeAuto if empty.
+	LinkSubnetWithForce(ctx context.Context, subnetID string, mode string, ipAddress string) error
 	// UnlinkSubnet unlinks a subnet from this interface
 	UnlinkSubnet(ctx context.Context, linkID string) error
 	// UpdateIPConfiguration updates an existing link's IP configuration directly
@@ -301,30 +303,54 @@ func (ni *networkInterface) Update(ctx context.Context, params Params) error {
 }
 
 func (ni *networkInterface) LinkSubnet(ctx context.Context, subnetID string, ipAddress string) error {
-	return ni.LinkSubnetWithMode(ctx, subnetID, "", ipAddress, false)
+	ni.params.Reset()
+	ni.params.Set(Operation, OperationLinkSubnet)
+	ni.params.Set(SubnetKey, subnetID)
+
+	// Set mode based on whether IP address is provided
+	if ipAddress != "" {
+		ni.params.Set(IPAddressKey, ipAddress)
+		ni.params.Set(ModeKey, ModeStatic) // Static mode when IP is provided
+	} else {
+		ni.params.Set(ModeKey, ModeDHCP) // DHCP mode when no IP
+	}
+
+	res, err := ni.client.Post(ctx, ni.apiPath, ni.params.Values())
+	if err != nil {
+		return err
+	}
+
+	return unMarshalJson(res, nil)
 }
 
-func (ni *networkInterface) LinkSubnetWithMode(ctx context.Context, subnetID string, mode string, ipAddress string, force bool) error {
+func (ni *networkInterface) linkSubnetWithMode(ctx context.Context, subnetID string, mode string, ipAddress string, force bool) error {
 	ni.params.Reset()
 	ni.params.Set(Operation, OperationLinkSubnet)
 	ni.params.Set(SubnetKey, subnetID)
 	if force {
 		ni.params.Set(ForceKey, TrueKey)
 	}
-	if ipAddress != "" {
-		ni.params.Set(ModeKey, ModeStatic)
+	if mode == "" {
+		mode = ModeAuto
+	}
+	ni.params.Set(ModeKey, mode)
+	// Only attach ip_address for static mode; AUTO and DHCP must not include it
+	if mode == ModeStatic && ipAddress != "" {
 		ni.params.Set(IPAddressKey, ipAddress)
-	} else {
-		if mode == "" {
-			mode = ModeAuto
-		}
-		ni.params.Set(ModeKey, mode)
 	}
 	res, err := ni.client.Post(ctx, ni.apiPath, ni.params.Values())
 	if err != nil {
 		return err
 	}
 	return unMarshalJson(res, nil)
+}
+
+func (ni *networkInterface) LinkSubnetWithMode(ctx context.Context, subnetID string, mode string, ipAddress string) error {
+	return ni.linkSubnetWithMode(ctx, subnetID, mode, ipAddress, false)
+}
+
+func (ni *networkInterface) LinkSubnetWithForce(ctx context.Context, subnetID string, mode string, ipAddress string) error {
+	return ni.linkSubnetWithMode(ctx, subnetID, mode, ipAddress, true)
 }
 
 func (ni *networkInterface) UnlinkSubnet(ctx context.Context, linkID string) error {
@@ -372,7 +398,7 @@ func (ni *networkInterface) UpdateIPConfiguration(ctx context.Context, config IP
 			if config.Mode == ModeStatic && config.IPAddress != nil {
 				ipAddr = *config.IPAddress
 			}
-			return ni.LinkSubnetWithMode(ctx, subnetID, config.Mode, ipAddr, true)
+			return ni.LinkSubnetWithForce(ctx, subnetID, config.Mode, ipAddr)
 		}
 		return fmt.Errorf("failed to unlink existing configuration: %w", err)
 	}
