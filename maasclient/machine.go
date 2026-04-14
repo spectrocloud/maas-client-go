@@ -120,7 +120,7 @@ type machines struct {
 
 func (m *machines) WithTags(tags []string) MachineAllocator {
 	for _, tag := range tags {
-		m.params.Set(TagKey, tag)
+		m.params.Add(TagKey, tag)
 	}
 	return m
 }
