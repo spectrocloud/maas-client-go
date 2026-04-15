@@ -159,3 +159,42 @@ func TestClient_UpdateMachine(t *testing.T) {
 	assert.Equal(t, res.SwapSize(), 10)
 
 }
+
+func TestWithTags_AllTagsPresentInParams(t *testing.T) {
+	m := &machines{Controller{
+		apiPath: "/machines/",
+		params:  ParamsBuilder(),
+	}}
+
+	tags := []string{"tag1", "tag2", "tag3"}
+	m.WithTags(tags)
+
+	got := m.params.Values()[TagKey]
+	assert.Len(t, got, 3, "all tags should be present in params")
+	assert.ElementsMatch(t, tags, got)
+}
+
+func TestWithTags_SingleTag(t *testing.T) {
+	m := &machines{Controller{
+		apiPath: "/machines/",
+		params:  ParamsBuilder(),
+	}}
+
+	m.WithTags([]string{"only-tag"})
+
+	got := m.params.Values()[TagKey]
+	assert.Len(t, got, 1)
+	assert.Equal(t, "only-tag", got[0])
+}
+
+func TestWithTags_Empty(t *testing.T) {
+	m := &machines{Controller{
+		apiPath: "/machines/",
+		params:  ParamsBuilder(),
+	}}
+
+	m.WithTags([]string{})
+
+	got := m.params.Values()[TagKey]
+	assert.Empty(t, got)
+}
