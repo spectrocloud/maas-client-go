@@ -310,8 +310,11 @@ func authHeader(req *http.Request, queryParams url.Values, apiKey string) string
 	params := make(map[string]string)
 	if req.Method != http.MethodPut {
 		// for some bizarre-reason PUT doesn't need this
+		// For multi-valued params (e.g. tags=prod&tags=virtual), MAAS OAuth
+		// verification uses the last value per key (Python dict "last wins").
+		// Using v[0] would sign a different value than MAAS expects → 401.
 		for k, v := range queryParams {
-			params[k] = v[0]
+			params[k] = v[len(v)-1]
 		}
 	}
 
