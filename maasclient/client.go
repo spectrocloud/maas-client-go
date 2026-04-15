@@ -323,7 +323,7 @@ func authHeader(req *http.Request, queryParams url.Values, apiKey string) string
 	if req.Method != http.MethodPut {
 		// for some bizarre-reason PUT doesn't need this
 		for k, v := range queryParams {
-			params[k] = v[0]
+			params[k] = v[len(v)-1]
 		}
 	}
 
