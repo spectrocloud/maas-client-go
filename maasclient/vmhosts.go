@@ -374,6 +374,6 @@ type StoragePool struct {
 	Total     int64  `json:"total,omitempty"`
 	Used      int64  `json:"used,omitempty"`
 	Pending   int64  `json:"pending,omitempty"`
-	Available int64  `json:"avail,omitempty"`
+	Available int64  `json:"available,omitempty"`
 	Remote    bool   `json:"remote,omitempty"`
 }
