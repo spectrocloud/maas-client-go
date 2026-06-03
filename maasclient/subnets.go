@@ -132,8 +132,12 @@ func (s *subnets) GetIPAddresses(ctx context.Context, subnetID int) ([]SubnetIPA
 
 // GetReservedIPRanges returns the reserved IP ranges for the given subnet
 func (s *subnets) GetReservedIPRanges(ctx context.Context, subnetID int) ([]SubnetIPRange, error) {
-	path := fmt.Sprintf("%s%d/reserved_ip_ranges/", s.apiPath, subnetID)
-	res, err := s.client.Get(ctx, path, url.Values{})
+	path := fmt.Sprintf("%s%d/", s.apiPath, subnetID)
+
+	params := url.Values{}
+	params.Set("op", "reserved_ip_ranges")
+
+	res, err := s.client.Get(ctx, path, params)
 	if err != nil {
 		return nil, err
 	}
@@ -147,8 +151,12 @@ func (s *subnets) GetReservedIPRanges(ctx context.Context, subnetID int) ([]Subn
 
 // GetUnreservedIPRanges returns the unreserved (free) IP ranges for the given subnet
 func (s *subnets) GetUnreservedIPRanges(ctx context.Context, subnetID int) ([]SubnetIPRange, error) {
-	path := fmt.Sprintf("%s%d/unreserved_ip_ranges/", s.apiPath, subnetID)
-	res, err := s.client.Get(ctx, path, url.Values{})
+	path := fmt.Sprintf("%s%d/", s.apiPath, subnetID)
+
+	params := url.Values{}
+	params.Set("op", "unreserved_ip_ranges")
+
+	res, err := s.client.Get(ctx, path, params)
 	if err != nil {
 		return nil, err
 	}
