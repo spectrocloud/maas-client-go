@@ -192,7 +192,7 @@ func TestTagsAssignToMachines(t *testing.T) {
 			assert.Nil(t, r.ParseForm())
 			gotAdd = r.PostForm["add"]
 			w.Header().Set("Content-Type", "application/json")
-			fmt.Fprint(w, "{}")
+			_, _ = fmt.Fprint(w, "{}")
 		}))
 		defer server.Close()
 
@@ -212,7 +212,7 @@ func TestTagsAssignToMachines(t *testing.T) {
 			assert.Nil(t, r.ParseForm())
 			gotAdd = r.PostForm["add"]
 			w.Header().Set("Content-Type", "application/json")
-			fmt.Fprint(w, "{}")
+			_, _ = fmt.Fprint(w, "{}")
 		}))
 		defer server.Close()
 
@@ -258,7 +258,7 @@ func TestTagsAssignToMachines(t *testing.T) {
 	t.Run("returns error on non-2xx response", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusNotFound)
-			fmt.Fprint(w, "No Tag matches the given query.")
+			_, _ = fmt.Fprint(w, "No Tag matches the given query.")
 		}))
 		defer server.Close()
 
@@ -274,7 +274,7 @@ func TestTagsAssignToMachines(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			gotEscapedPath = r.URL.EscapedPath()
 			w.Header().Set("Content-Type", "application/json")
-			fmt.Fprint(w, "{}")
+			_, _ = fmt.Fprint(w, "{}")
 		}))
 		defer server.Close()
 
@@ -294,7 +294,7 @@ func TestTagsList_UnmarshalsComment(t *testing.T) {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprint(w, `[
+		_, _ = fmt.Fprint(w, `[
 		  {
 		    "name": "gpu",
 		    "definition": "//node[@class=\"display\"]",

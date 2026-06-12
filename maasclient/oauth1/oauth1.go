@@ -45,7 +45,7 @@ func (auth OAuth) BuildOAuthHeader(method, path string, params map[string]string
 		vals.Add(k, v)
 	}
 	// net/url package QueryEscape escapes " " into "+", this replaces it with the percentage encoding of " "
-	parameterString := strings.Replace(vals.Encode(), "+", "%20", -1)
+	parameterString := strings.ReplaceAll(vals.Encode(), "+", "%20")
 
 	// Calculating Signature Base String and Signing Key
 	signatureBase := strings.ToUpper(method) + "&" + url.QueryEscape(strings.Split(path, "?")[0]) + "&" + url.QueryEscape(parameterString)

@@ -19,7 +19,7 @@ package maasclient
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 )
 
@@ -30,9 +30,9 @@ type Controller struct {
 }
 
 func unMarshalJson(res *http.Response, v interface{}) error {
-	defer res.Body.Close()
+	defer func() { _ = res.Body.Close() }()
 
-	bodyBytes, err := ioutil.ReadAll(res.Body)
+	bodyBytes, err := io.ReadAll(res.Body)
 	if err != nil {
 		return err
 	}

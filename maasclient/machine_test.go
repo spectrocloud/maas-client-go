@@ -19,7 +19,6 @@ package maasclient
 import (
 	"context"
 	"fmt"
-	"math/rand"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -30,12 +29,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-func TestMain(m *testing.M) {
-	rand.Seed(time.Now().UnixNano())
-	code := m.Run()
-	os.Exit(code)
-}
 
 func TestClient_GetMachine(t *testing.T) {
 	c := requireMAASIntegration(t)
@@ -218,7 +211,7 @@ func TestMachinesList_PassesParams(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			gotQuery = r.URL.Query()
 			w.Header().Set("Content-Type", "application/json")
-			fmt.Fprint(w, machinesListResponse)
+			_, _ = fmt.Fprint(w, machinesListResponse)
 		}))
 		defer server.Close()
 
@@ -236,7 +229,7 @@ func TestMachinesList_PassesParams(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			gotQuery = r.URL.RawQuery
 			w.Header().Set("Content-Type", "application/json")
-			fmt.Fprint(w, machinesListResponse)
+			_, _ = fmt.Fprint(w, machinesListResponse)
 		}))
 		defer server.Close()
 
@@ -254,7 +247,7 @@ func TestMachinesList_MachineFields(t *testing.T) {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprint(w, machinesListResponse)
+		_, _ = fmt.Fprint(w, machinesListResponse)
 	}))
 	defer server.Close()
 

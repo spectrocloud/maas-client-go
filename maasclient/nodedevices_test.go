@@ -79,7 +79,7 @@ func TestNodeDevicesList(t *testing.T) {
 			gotMethod = r.Method
 			gotPath = r.URL.Path
 			w.Header().Set("Content-Type", "application/json")
-			fmt.Fprint(w, nodeDevicesResponse)
+			_, _ = fmt.Fprint(w, nodeDevicesResponse)
 		}))
 		defer server.Close()
 
@@ -118,7 +118,7 @@ func TestNodeDevicesList(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			gotQuery = r.URL.Query().Get(HardwareTypeKey)
 			w.Header().Set("Content-Type", "application/json")
-			fmt.Fprint(w, "[]")
+			_, _ = fmt.Fprint(w, "[]")
 		}))
 		defer server.Close()
 
@@ -134,7 +134,7 @@ func TestNodeDevicesList(t *testing.T) {
 	t.Run("returns error on non-2xx response", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusNotFound)
-			fmt.Fprint(w, "Not Found")
+			_, _ = fmt.Fprint(w, "Not Found")
 		}))
 		defer server.Close()
 
