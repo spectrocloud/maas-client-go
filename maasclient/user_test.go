@@ -18,9 +18,10 @@ package maasclient
 
 import (
 	"context"
-	"github.com/stretchr/testify/assert"
 	"os"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestUsers(t *testing.T) {
@@ -40,7 +41,7 @@ func TestUsers(t *testing.T) {
 		assert.Nil(t, err)
 		assert.NotNil(t, res)
 		assert.NotEmpty(t, res)
-		assert.Equal(t, res.UserName(), "dev")
+		assert.NotEqual(t, "", res.UserName()) // actual userName changes depending on api key
 	})
 
 }

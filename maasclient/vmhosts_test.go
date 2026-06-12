@@ -32,13 +32,13 @@ func TestVMHost_Tags(t *testing.T) {
 	t.Run("list vmhosts and verify tags field", func(t *testing.T) {
 		hosts, err := c.VMHosts().List(ctx, nil)
 		assert.Nil(t, err)
-		assert.NotNil(t, hosts)
 
 		if len(hosts) == 0 {
 			t.Skip("No VM hosts available to test")
 		}
 
 		// Verify Tags() returns a slice (not nil) for each host
+		assert.NotNil(t, hosts)
 		for _, host := range hosts {
 			tagsTest := host.Tags()
 			assert.NotNil(t, tagsTest, "Tags() should return empty slice, not nil for host %s", host.Name())

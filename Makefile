@@ -22,7 +22,7 @@ lint:  ## Lint your code
 dev-lint:  ## Lint your code, dev-mode
 	golangci-lint run ./... --timeout 10m '--tests=false' '--disable=unused'
 
-test:  ## Run unit tests
+test:  ## Run unit and integration tests
 	@mkdir -p $(COVER_DIR)
 	rm -f $(COVER_DIR)/*.out
 	go test -v -covermode=count -coverprofile=$(COVER_DIR)/pkg_unit.out ./...

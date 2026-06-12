@@ -2,3 +2,4 @@ _build
 .idea
 .vscode
 /vendor
+.env

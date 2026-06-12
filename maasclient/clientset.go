@@ -24,6 +24,7 @@ type ClientSetInterface interface {
 	Tags() Tags
 	Machines() Machines
 	NetworkInterfaces() NetworkInterfaces
+	NodeDevices() NodeDevices
 	RackControllers() RackControllers
 	ResourcePools() ResourcePools
 	Spaces() Spaces

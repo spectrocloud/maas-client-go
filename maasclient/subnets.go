@@ -183,4 +183,3 @@ func (s *subnets) IsIPInUse(ctx context.Context, subnetID int, ip string) (bool,
 
 	return false, nil
 }
-

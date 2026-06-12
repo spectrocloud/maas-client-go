@@ -47,11 +47,11 @@ type ipRange struct {
 	subnet  *subnet
 }
 
-func (r *ipRange) ID() int          { return r.id }
-func (r *ipRange) Type() string     { return r.typ }
-func (r *ipRange) StartIP() string  { return r.startIP }
-func (r *ipRange) EndIP() string    { return r.endIP }
-func (r *ipRange) Comment() string  { return r.comment }
+func (r *ipRange) ID() int         { return r.id }
+func (r *ipRange) Type() string    { return r.typ }
+func (r *ipRange) StartIP() string { return r.startIP }
+func (r *ipRange) EndIP() string   { return r.endIP }
+func (r *ipRange) Comment() string { return r.comment }
 func (r *ipRange) Subnet() Subnet {
 	if r.subnet == nil {
 		return nil
