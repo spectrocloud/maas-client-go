@@ -79,6 +79,7 @@ type NetworkInterface interface {
 	Links() []NetworkInterfaceLink
 	Children() []string
 	VLAN() VLAN
+	Tags() []string
 }
 
 // IPConfigurationUpdate represents the parameters for updating IP configuration
@@ -113,6 +114,7 @@ type networkInterface struct {
 	links       []*networkInterfaceLink
 	children    []string
 	vlan        *vlan
+	tags        []string
 }
 
 type networkInterfaceLink struct {
@@ -561,6 +563,8 @@ func (ni *networkInterface) VLAN() VLAN {
 	return ni.vlan
 }
 
+func (ni *networkInterface) Tags() []string { return ni.tags }
+
 // JSON unmarshaling
 func (ni *networkInterface) UnmarshalJSON(data []byte) error {
 	type Alias networkInterface
@@ -573,6 +577,7 @@ func (ni *networkInterface) UnmarshalJSON(data []byte) error {
 		Links      []*networkInterfaceLink `json:"links"`
 		Children   []string                `json:"children"`
 		VLAN       *vlan                   `json:"vlan"`
+		Tags       []string                `json:"tags"`
 		*Alias
 	}{
 		Alias: (*Alias)(ni),
@@ -591,6 +596,7 @@ func (ni *networkInterface) UnmarshalJSON(data []byte) error {
 	ni.links = aux.Links
 	ni.children = aux.Children
 	ni.vlan = aux.VLAN
+	ni.tags = aux.Tags
 
 	return nil
 }
