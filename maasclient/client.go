@@ -195,6 +195,7 @@ type authenticatedClientSet struct {
 	subnetsController           Subnets
 	machineController           Machines
 	networkInterfacesController NetworkInterfaces
+	nodeDevicesController       NodeDevices
 	ipAddressesController       IPAddresses
 	vmHostsController           VMHosts
 	ipRangesController          IPRanges
@@ -252,6 +253,10 @@ func (m *authenticatedClientSet) NetworkInterfaces() NetworkInterfaces {
 	return m.networkInterfacesController
 }
 
+func (m *authenticatedClientSet) NodeDevices() NodeDevices {
+	return m.nodeDevicesController
+}
+
 func (m *authenticatedClientSet) IPAddresses() IPAddresses {
 	return m.ipAddressesController
 }
@@ -299,6 +304,7 @@ func NewAuthenticatedClientSet(maasEndpoint, apiKey string, options ...func(clie
 	clientSet.subnetsController = NewSubnetsClient(client)
 	clientSet.machineController = NewMachinesClient(client)
 	clientSet.networkInterfacesController = NewNetworkInterfacesClient(client)
+	clientSet.nodeDevicesController = NewNodeDevicesClient(client)
 	clientSet.ipAddressesController = NewIPAddressesClient(client)
 	clientSet.vmHostsController = NewVMHostsClient(client)
 	clientSet.ipRangesController = NewIPRangesClient(client)

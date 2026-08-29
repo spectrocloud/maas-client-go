@@ -33,6 +33,9 @@ type Tags interface {
 	Create(ctx context.Context, tagName string) error
 	// Assign applies the given tag name to the provided machine system ID
 	Assign(ctx context.Context, tagName string, systemID string) error
+	// AssignToMachines applies the given tag name to multiple machine system IDs
+	// in a single request
+	AssignToMachines(ctx context.Context, tagName string, systemIDs []string) error
 	// Unassign removes the given tag name from the provided machine system ID
 	Unassign(ctx context.Context, tagName string, systemID string) error
 }
@@ -84,6 +87,27 @@ func (ds *tags) Assign(ctx context.Context, tagName string, systemID string) err
 	_, err := ds.client.Post(ctx, path, params)
 	return err
 
+}
+
+func (ds *tags) AssignToMachines(ctx context.Context, tagName string, systemIDs []string) error {
+	if tagName == "" {
+		return nil
+	}
+	params := url.Values{}
+	for _, systemID := range systemIDs {
+		if systemID != "" {
+			params.Add("add", systemID)
+		}
+	}
+	if len(params["add"]) == 0 {
+		return nil
+	}
+	path := fmt.Sprintf("%s%s/op-update_nodes", ds.apiPath, url.PathEscape(tagName))
+	res, err := ds.client.Post(ctx, path, params)
+	if err != nil {
+		return err
+	}
+	return unMarshalJson(res, nil)
 }
 
 func (ds *tags) Unassign(ctx context.Context, tagName string, systemID string) error {
@@ -156,7 +180,7 @@ func (d *tag) UnmarshalJSON(data []byte) error {
 	}
 
 	d.name = des.Name
-	d.comment = des.KernelOpts
+	d.comment = des.Comment
 	d.resource_uri = des.ResourceUri
 	d.kernel_opts = des.KernelOpts
 	d.definition = des.Definition

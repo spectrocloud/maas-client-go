@@ -2,3 +2,6 @@ _build
 .idea
 .vscode
 /vendor
+.env
+!.env.example
+.DS_Store

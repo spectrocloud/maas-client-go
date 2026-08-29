@@ -131,7 +131,7 @@ func (brs *bootResources) Create(ctx context.Context) (BootResource, error) {
 	if err != nil {
 		return nil, err
 	}
-	writer.Close()
+	_ = writer.Close()
 
 	res, err := brs.client.PostForm(ctx, brs.apiPath, writer.FormDataContentType(), brs.params.Values(), buf)
 	if err != nil {
@@ -221,7 +221,7 @@ func (b *bootResource) Upload(ctx context.Context) error {
 		return err
 	}
 
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	reader := bufio.NewReader(f)
 	fileBuf := make([]byte, 1<<22)
@@ -359,7 +359,7 @@ func writeMultiPartParams(writer *multipart.Writer, params url.Values) error {
 				return err
 			}
 			buffer := bytes.NewBufferString(value)
-			io.Copy(fw, buffer)
+			_, _ = io.Copy(fw, buffer)
 		}
 	}
 	return nil

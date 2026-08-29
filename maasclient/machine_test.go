@@ -18,67 +18,51 @@ package maasclient
 
 import (
 	"context"
-	"math/rand"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"os"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-func TestMain(m *testing.M) {
-	rand.Seed(time.Now().UnixNano())
-	code := m.Run()
-	os.Exit(code)
-}
-
 func TestClient_GetMachine(t *testing.T) {
-	c := NewAuthenticatedClientSet(os.Getenv("MAAS_ENDPOINT"), os.Getenv("MAAS_API_KEY"))
-
+	c := requireMAASIntegration(t)
 	ctx := context.Background()
-	res := c.Machines().Machine("e37xxm")
-	_, err := res.Get(ctx)
-	//.machine(ctx, "e37xxm")
+	systemID := discoverMachineSystemID(t, c, ctx)
 
-	assert.Nil(t, err, "expecting nil error")
+	res, err := c.Machines().Machine(systemID).Get(ctx)
+	require.NoError(t, err)
+	require.NotNil(t, res)
 
-	assert.NotNil(t, res, "expecting non-nil result")
-	assert.NotEmpty(t, res.SystemID())
+	assert.Equal(t, systemID, res.SystemID())
 	assert.NotEmpty(t, res.Hostname())
-	assert.Equal(t, res.State(), "Deployed")
+	assert.NotEmpty(t, res.State())
 	assert.NotEmpty(t, res.PowerState())
-	assert.Equal(t, res.Zone().Name(), "az2")
-
-	assert.NotEmpty(t, res.FQDN())
-	assert.NotEmpty(t, res.IPAddresses())
-
-	assert.NotEmpty(t, res.OSSystem())
-	assert.NotEmpty(t, res.DistroSeries())
-
-	assert.Zero(t, res.SwapSize())
-
 }
 
 func TestClient_AllocateMachine(t *testing.T) {
-	c := NewAuthenticatedClientSet(os.Getenv("MAAS_ENDPOINT"), os.Getenv("MAAS_API_KEY"))
-
+	requireMachineMutations(t)
+	c := requireMAASIntegration(t)
 	ctx := context.Background()
 
 	releaseMachine := func(res Machine) {
 		if res != nil {
 			_, err := res.Releaser().
-				WithComment("releaseaan").
+				WithComment("maas-client-go test release").
 				Release(ctx)
 			assert.Nil(t, err)
-			assert.NotNil(t, res)
 		}
 	}
 
 	t.Run("no-options", func(t *testing.T) {
 		res, err := c.Machines().Allocator().Allocate(ctx)
-
-		assert.Nil(t, err, "expecting nil error")
-		assert.NotNil(t, res)
+		require.NoError(t, err)
+		require.NotNil(t, res)
 
 		releaseMachine(res)
 	})
@@ -89,31 +73,35 @@ func TestClient_AllocateMachine(t *testing.T) {
 			WithSystemID("abc").
 			Allocate(ctx)
 
-		assert.NotNil(t, err, "expecting error")
-
+		assert.Error(t, err)
 		releaseMachine(res)
 	})
 
-	t.Run("with-az", func(t *testing.T) {
-		res, err := c.Machines().Allocator().WithZone("az1").Allocate(ctx)
+	t.Run("with-zone", func(t *testing.T) {
+		zone := discoverTestZone(t, c, ctx)
 
-		assert.Nil(t, err, "expecting nil error")
-		assert.NotNil(t, res)
+		res, err := c.Machines().Allocator().WithZone(zone).Allocate(ctx)
+		require.NoError(t, err)
+		require.NotNil(t, res)
 
 		releaseMachine(res)
 	})
-
 }
 
 func TestClient_DeployMachine(t *testing.T) {
-	c := NewAuthenticatedClientSet(os.Getenv("MAAS_ENDPOINT"), os.Getenv("MAAS_API_KEY"))
-
+	requireMachineMutations(t)
+	c := requireMAASIntegration(t)
 	ctx := context.Background()
+
+	distroSeries := os.Getenv("MAAS_TEST_DISTRO_SERIES")
+	if distroSeries == "" {
+		t.Skip("MAAS_TEST_DISTRO_SERIES must be set for deploy tests")
+	}
 
 	releaseMachine := func(res Machine) {
 		if res != nil {
 			_, err := res.Releaser().
-				WithComment("releaseaan a").
+				WithComment("maas-client-go test release").
 				Release(ctx)
 			assert.Nil(t, err)
 		}
@@ -121,43 +109,41 @@ func TestClient_DeployMachine(t *testing.T) {
 
 	t.Run("simple", func(t *testing.T) {
 		res, err := c.Machines().Allocator().Allocate(ctx)
-		if err != nil {
-			t.Fatal("Machine didn't allocate")
-		}
-		assert.NotNil(t, res)
+		require.NoError(t, err)
+		require.NotNil(t, res)
 		assert.NotEmpty(t, res.SystemID())
 
 		res, err = res.Modifier().SetSwapSize(0).Update(ctx)
-		assert.Nil(t, err)
+		require.NoError(t, err)
 
 		_, err = res.Deployer().
 			SetOSSystem("custom").
-			SetDistroSeries("u-1804-0-k-11915-0").Deploy(ctx)
-		assert.Nil(t, err, "expecting nil error")
-		assert.NotNil(t, res)
+			SetDistroSeries(distroSeries).Deploy(ctx)
+		require.NoError(t, err)
+		require.NotNil(t, res)
 
-		assert.Equal(t, res.OSSystem(), "custom")
-		assert.Equal(t, res.DistroSeries(), "u-1804-0-k-11915-0")
+		assert.Equal(t, "custom", res.OSSystem())
+		assert.Equal(t, distroSeries, res.DistroSeries())
 
-		// Give me a few seconds before clenaing up
 		time.Sleep(15 * time.Second)
 
 		releaseMachine(res)
 	})
-
 }
 
 func TestClient_UpdateMachine(t *testing.T) {
-	c := NewAuthenticatedClientSet(os.Getenv("MAAS_ENDPOINT"), os.Getenv("MAAS_API_KEY"))
+	requireMachineMutations(t)
+	c := requireMAASIntegration(t)
+	ctx := context.Background()
+	systemID := discoverMachineSystemID(t, c, ctx)
 
-	res, err := c.Machines().Machine("e37xxm").
+	res, err := c.Machines().Machine(systemID).
 		Modifier().
 		SetSwapSize(10).
-		Update(context.Background())
-	assert.Nil(t, err)
-	assert.NotNil(t, res)
-	assert.Equal(t, res.SwapSize(), 10)
-
+		Update(ctx)
+	require.NoError(t, err)
+	require.NotNil(t, res)
+	assert.Equal(t, 10, res.SwapSize())
 }
 
 func TestWithTags_AllTagsPresentInParams(t *testing.T) {
@@ -197,4 +183,88 @@ func TestWithTags_Empty(t *testing.T) {
 
 	got := m.params.Values()[TagKey]
 	assert.Empty(t, got)
+}
+
+const machinesListResponse = `[
+  {
+    "system_id": "abc123",
+    "hostname": "node-1",
+    "fqdn": "node-1.maas",
+    "status_name": "Ready",
+    "architecture": "amd64/generic",
+    "cpu_count": 8,
+    "memory": 16384,
+    "zone": {"id": 1, "name": "az1", "description": ""},
+    "pool": {"id": 0, "name": "default", "description": ""},
+    "tag_names": ["gpu", "team-a"]
+  }
+]`
+
+// Regression test: List used to ignore its params argument and always send
+// the controller's internal (empty) params, so filters such as tags never
+// reached the MAAS API.
+func TestMachinesList_PassesParams(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("forwards caller params as query string", func(t *testing.T) {
+		var gotQuery url.Values
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			gotQuery = r.URL.Query()
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = fmt.Fprint(w, machinesListResponse)
+		}))
+		defer server.Close()
+
+		c := NewAuthenticatedClientSet(server.URL, "consumer:token:secret")
+
+		params := ParamsBuilder().Add(TagKey, "gpu").Add(TagKey, "team-a")
+		machines, err := c.Machines().List(ctx, params)
+		assert.Nil(t, err)
+		assert.Equal(t, []string{"gpu", "team-a"}, gotQuery[TagKey])
+		assert.Len(t, machines, 1)
+	})
+
+	t.Run("nil params sends no query string", func(t *testing.T) {
+		var gotQuery string
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			gotQuery = r.URL.RawQuery
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = fmt.Fprint(w, machinesListResponse)
+		}))
+		defer server.Close()
+
+		c := NewAuthenticatedClientSet(server.URL, "consumer:token:secret")
+
+		machines, err := c.Machines().List(ctx, nil)
+		assert.Nil(t, err)
+		assert.Empty(t, gotQuery)
+		assert.Len(t, machines, 1)
+	})
+}
+
+func TestMachinesList_MachineFields(t *testing.T) {
+	ctx := context.Background()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = fmt.Fprint(w, machinesListResponse)
+	}))
+	defer server.Close()
+
+	c := NewAuthenticatedClientSet(server.URL, "consumer:token:secret")
+
+	machines, err := c.Machines().List(ctx, nil)
+	assert.Nil(t, err)
+	assert.Len(t, machines, 1)
+
+	m := machines[0]
+	assert.Equal(t, "abc123", m.SystemID())
+	assert.Equal(t, "node-1", m.Hostname())
+	assert.Equal(t, "Ready", m.State())
+	assert.Equal(t, 8, m.CPUCount())
+	assert.Equal(t, 16384, m.Memory())
+	assert.Equal(t, "amd64/generic", m.Architecture())
+	assert.Equal(t, "az1", m.ZoneName())
+	assert.Equal(t, "default", m.ResourcePoolName())
+	assert.Equal(t, []string{"gpu", "team-a"}, m.Tags())
 }

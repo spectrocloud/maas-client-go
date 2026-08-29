@@ -19,7 +19,7 @@ package maasclient
 type FilterType string
 
 const (
-	// parametes
+	// parameters
 	FQDNKey            = "fqdn"
 	DomainKey          = "domain"
 	NameKey            = "name"
@@ -63,11 +63,28 @@ const (
 	ParentKey          = "parent"
 	EphemeralDeployKey = "ephemeral_deploy"
 
+	// Node device filters (GET /nodes/{system_id}/devices/)
+	BusKey                 = "bus"
+	HardwareTypeKey        = "hardware_type"
+	VendorIDKey            = "vendor_id"
+	ProductIDKey           = "product_id"
+	VendorNameKey          = "vendor_name"
+	ProductNameKey         = "product_name"
+	CommissioningDriverKey = "commissioning_driver"
+
+	// Node device hardware_type filter values
+	HardwareTypeNode    = "node"
+	HardwareTypeCPU     = "cpu"
+	HardwareTypeMemory  = "memory"
+	HardwareTypeStorage = "storage"
+	HardwareTypeNetwork = "network"
+	HardwareTypeGPU     = "gpu"
+
 	// Network interface modes for link_subnet (MAAS API: AUTO, DHCP, STATIC, LINK_UP).
 	// Use lowercase to match existing API usage. See https://maas.io/docs/interfaces
-	ModeAuto   = "auto"   // MAAS assigns static IP from managed subnet at deploy; no DHCP on wire (avoids DHCP-provided routes)
-	ModeDHCP   = "dhcp"   // Interface uses DHCP on the subnet
-	ModeStatic = "static" // Static IP (provide ip_address or MAAS auto-selects from subnet)
+	ModeAuto   = "auto"    // MAAS assigns static IP from managed subnet at deploy; no DHCP on wire (avoids DHCP-provided routes)
+	ModeDHCP   = "dhcp"    // Interface uses DHCP on the subnet
+	ModeStatic = "static"  // Static IP (provide ip_address or MAAS auto-selects from subnet)
 	ModeLinkUp = "link_up" // Bring interface up on subnet with no IP
 
 	// Resource operations

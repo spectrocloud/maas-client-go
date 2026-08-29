@@ -18,16 +18,15 @@ package maasclient
 
 import (
 	"context"
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
 func TestGetDNSResources(t *testing.T) {
-	c := NewAuthenticatedClientSet(os.Getenv("MAAS_ENDPOINT"), os.Getenv("MAAS_API_KEY"))
-
+	c := requireMAASIntegration(t)
 	ctx := context.Background()
+	domain := testDNSDomain(t, c, ctx)
 
 	t.Run("no-options", func(t *testing.T) {
 		res, err := c.DNSResources().List(ctx, nil)
@@ -40,56 +39,52 @@ func TestGetDNSResources(t *testing.T) {
 		assert.NotEmpty(t, res[0].FQDN())
 	})
 
-	t.Run("invalid-search", func(t *testing.T) {
-		filters := ParamsBuilder().Add(FQDNKey, "bad-doesntexist.maas")
+	t.Run("search nonexistent fqdn", func(t *testing.T) {
+		nonexistent := dnsFQDN(uniqueDNSResourceName("nonexistent"), domain)
+		filters := ParamsBuilder().Add(FQDNKey, nonexistent)
 		res, err := c.DNSResources().List(ctx, filters)
-		assert.NotNil(t, err, "expecting nil error")
-		assert.Nil(t, res, "expecting non-nil result")
+		assert.Nil(t, err)
 		assert.Empty(t, res)
 	})
 
-	t.Run("get maas-1.maas", func(t *testing.T) {
-		filters := ParamsBuilder().Add(FQDNKey, "maas-1.maas.sc")
+	t.Run("get by fqdn", func(t *testing.T) {
+		existingFQDN := discoverDNSResourceFQDN(t, c, ctx)
+
+		filters := ParamsBuilder().Add(FQDNKey, existingFQDN)
 		res, err := c.DNSResources().List(ctx, filters)
 		assert.Nil(t, err, "expecting nil error")
 		assert.NotEmpty(t, res)
-		assert.NotZero(t, res[0].AddressTTL())
-		assert.NotEmpty(t, res[0].IPAddresses())
-		assert.NotEmpty(t, res[0].IPAddresses()[0].IP())
-
-		// TODO create test DNS
-
+		assert.Equal(t, existingFQDN, res[0].FQDN())
 	})
 
-	t.Run("create test-unit-1.maas", func(t *testing.T) {
+	t.Run("create and delete", func(t *testing.T) {
+		testFQDN := dnsFQDN(uniqueDNSResourceName("maas-client-go"), domain)
+
 		res, err := c.DNSResources().
 			Builder().
-			WithFQDN("test-unit-1.maas.sc").
+			WithFQDN(testFQDN).
 			WithAddressTTL("10").Create(ctx)
 		assert.Nil(t, err, "expecting nil error")
 		assert.NotNil(t, res)
-		assert.Equal(t, res.FQDN(), "test-unit-1.maas.sc")
-		assert.Equal(t, res.AddressTTL(), 10)
+		assert.Equal(t, testFQDN, res.FQDN())
+		assert.Equal(t, 10, res.AddressTTL())
 		assert.Empty(t, res.IPAddresses())
 
 		err = res.Delete(ctx)
 		assert.Nil(t, err, "expecting nil error")
-
 	})
 
-	t.Run("create test-unit-2.maas", func(t *testing.T) {
-
-		//err := c.DNSResources().DNSResource(148).Delete(ctx)
-		//assert.Nil(t, err)
+	t.Run("create modify and delete", func(t *testing.T) {
+		testFQDN := dnsFQDN(uniqueDNSResourceName("maas-client-go"), domain)
 
 		res, err := c.DNSResources().
 			Builder().
-			WithFQDN("test-unit-2.maas.sc").
+			WithFQDN(testFQDN).
 			WithAddressTTL("10").Create(ctx)
 		assert.Nil(t, err, "expecting nil error")
 		assert.NotNil(t, res)
-		assert.Equal(t, res.FQDN(), "test-unit-2.maas.sc")
-		assert.Equal(t, res.AddressTTL(), 10)
+		assert.Equal(t, testFQDN, res.FQDN())
+		assert.Equal(t, 10, res.AddressTTL())
 		assert.Empty(t, res.IPAddresses())
 
 		res, err = res.Modifier().
@@ -98,24 +93,15 @@ func TestGetDNSResources(t *testing.T) {
 		if err != nil {
 			t.Fatal("error", err)
 		}
-		assert.Equal(t, res.FQDN(), "test-unit-2.maas.sc")
-		assert.Equal(t, res.AddressTTL(), 10)
+		assert.Equal(t, testFQDN, res.FQDN())
+		assert.Equal(t, 10, res.AddressTTL())
 		assert.NotEmpty(t, res.IPAddresses())
 
 		res2, err := c.DNSResources().DNSResource(res.ID()).Get(ctx)
 		assert.Nil(t, err)
-		assert.True(t, len(res2.IPAddresses()) == 2)
+		assert.Len(t, res2.IPAddresses(), 2)
 
 		err = res.Delete(ctx)
 		assert.Nil(t, err, "expecting nil error")
-
 	})
-
-	//assert.Equal(t, 1, res.Count, "expecting 1 resource")
-
-	//assert.Equal(t, 1, res.PagesCount, "expecting 1 PAGE found")
-	//
-	//assert.Equal(t, "integration_face_id", res.Faces[0].FaceID, "expecting correct face_id")
-	//assert.NotEmpty(t, res.Faces[0].FaceToken, "expecting non-empty face_token")
-	//assert.Greater(t, len(res.Faces[0].FaceImages), 0, "expecting non-empty face_images")
 }

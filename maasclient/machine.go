@@ -67,6 +67,12 @@ type Machine interface {
 	Tags() []string
 	// Parent returns the parent system_id when power_type is "lxd", or empty string otherwise
 	Parent() string
+	// CPUCount returns the number of CPU cores on the machine
+	CPUCount() int
+	// Memory returns the machine memory in MB
+	Memory() int
+	// Architecture returns the machine architecture (e.g., "amd64/generic")
+	Architecture() string
 }
 
 type PowerManagerOn interface {
@@ -185,7 +191,10 @@ func (m *machines) WithNotPodType(podType string) MachineAllocator {
 }
 
 func (m *machines) List(ctx context.Context, params Params) ([]Machine, error) {
-	res, err := m.client.Get(ctx, m.apiPath, m.params.Values())
+	if params == nil {
+		params = m.params
+	}
+	res, err := m.client.Get(ctx, m.apiPath, params.Values())
 	if err != nil {
 		return nil, err
 	}
@@ -252,6 +261,8 @@ type machine struct {
 	bootInterfaceType string   // Type of boot interface (physical, bridge, bond, etc.)
 	bootInterfaceName string   // Name of boot interface (e.g., enp2s0)
 	memory            int      // Memory in MB
+	cpuCount          int      // Number of CPU cores
+	architecture      string   // Machine architecture (e.g., amd64/generic)
 	storageMBDecimal  float64  // Total storage in decimal MB as reported by MAAS (e.g., 250059.35)
 	tags              []string // Tag names applied to the machine (if provided by MAAS)
 	parentSystemID    string   // Parent system_id for LXD VMs
@@ -509,6 +520,21 @@ func (m *machine) Parent() string {
 	return ""
 }
 
+// CPUCount returns the number of CPU cores on the machine
+func (m *machine) CPUCount() int {
+	return m.cpuCount
+}
+
+// Memory returns the machine memory in MB
+func (m *machine) Memory() int {
+	return m.memory
+}
+
+// Architecture returns the machine architecture (e.g., "amd64/generic")
+func (m *machine) Architecture() string {
+	return m.architecture
+}
+
 func (m *machine) UnmarshalJSON(data []byte) error {
 	des := &struct {
 		SystemID      string        `json:"system_id"`
@@ -524,6 +550,8 @@ func (m *machine) UnmarshalJSON(data []byte) error {
 		DistroSeries  string        `json:"distro_series"`
 		SwapSize      int           `json:"swap_size"`
 		Memory        int           `json:"memory"`
+		CPUCount      int           `json:"cpu_count"`
+		Architecture  string        `json:"architecture"`
 		Storage       float64       `json:"storage"`
 		BootInterface struct {
 			ID       int      `json:"id"`
@@ -558,6 +586,8 @@ func (m *machine) UnmarshalJSON(data []byte) error {
 	m.distroSeries = des.DistroSeries
 	m.swapSize = des.SwapSize
 	m.memory = des.Memory
+	m.cpuCount = des.CPUCount
+	m.architecture = des.Architecture
 	m.storageMBDecimal = des.Storage
 	m.parentSystemID = des.Parent.SystemID
 

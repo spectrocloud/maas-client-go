@@ -139,6 +139,9 @@ func (d *dnsResource) FQDN() string {
 }
 
 func (d *dnsResource) AddressTTL() int {
+	if d.addressTTL == nil {
+		return 0
+	}
 	return *d.addressTTL
 }
 

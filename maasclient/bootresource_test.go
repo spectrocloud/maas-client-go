@@ -18,14 +18,18 @@ package maasclient
 
 import (
 	"context"
-	"github.com/stretchr/testify/assert"
+	"crypto/sha256"
+	"fmt"
+	"io"
 	"os"
+	"strconv"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestGetBootResources(t *testing.T) {
-	c := NewAuthenticatedClientSet(os.Getenv("MAAS_ENDPOINT"), os.Getenv("MAAS_API_KEY"))
-
+	c := requireMAASIntegration(t)
 	ctx := context.Background()
 
 	t.Run("list-all", func(t *testing.T) {
@@ -33,21 +37,85 @@ func TestGetBootResources(t *testing.T) {
 		assert.Nil(t, err, "expecting nil error")
 		assert.NotEmpty(t, list)
 	})
-	//
-	t.Run("list-by-id", func(t *testing.T) {
-		res, err := c.BootResources().BootResource(7).Get(ctx)
+
+	t.Run("get-by-id", func(t *testing.T) {
+		list, err := c.BootResources().List(ctx, nil)
+		assert.Nil(t, err)
+		if len(list) == 0 {
+			t.Skip("no boot resources in this MAAS environment")
+		}
+
+		id := list[0].ID()
+		if envID := os.Getenv("MAAS_TEST_BOOT_RESOURCE_ID"); envID != "" {
+			parsed, parseErr := strconv.Atoi(envID)
+			assert.Nil(t, parseErr)
+			id = parsed
+		}
+
+		res, err := c.BootResources().BootResource(id).Get(ctx)
 		assert.Nil(t, err)
 		assert.NotNil(t, res)
 	})
 
 	t.Run("import image", func(t *testing.T) {
-		res, err := c.BootResources().Builder("test-image",
-			"amd64/generic",
-			"e9844638c7345d182c5d88e1eaeae74749d02beeca38587a530207fddc0a280a",
-			"/Users/deepak/maas/ubuntu.tar.gz", 1262032476).Create(ctx)
+		filePath := os.Getenv("MAAS_TEST_BOOT_RESOURCE_FILE")
+		if filePath == "" {
+			t.Skip("MAAS_TEST_BOOT_RESOURCE_FILE is not set")
+		}
+
+		info, err := os.Stat(filePath)
+		if err != nil {
+			if os.IsNotExist(err) {
+				t.Skipf("boot resource file not found: %s", filePath)
+			}
+			t.Fatalf("stat boot resource file: %v", err)
+		}
+
+		hash, err := sha256File(filePath)
 		assert.Nil(t, err)
+
+		name := os.Getenv("MAAS_TEST_BOOT_RESOURCE_NAME")
+		if name == "" {
+			name = uniqueDNSResourceName("maas-client-go-boot")
+		}
+
+		architecture := os.Getenv("MAAS_TEST_BOOT_RESOURCE_ARCH")
+		if architecture == "" {
+			architecture = "amd64/generic"
+		}
+
+		res, err := c.BootResources().Builder(
+			name,
+			architecture,
+			hash,
+			filePath,
+			int(info.Size()),
+		).Create(ctx)
+		assert.Nil(t, err)
+		if res == nil {
+			t.Fatal("expected boot resource after create")
+		}
+		t.Cleanup(func() {
+			_ = res.Delete(ctx)
+		})
+
 		err = res.Upload(ctx)
 		assert.Nil(t, err)
 		assert.NotNil(t, res)
 	})
+}
+
+func sha256File(path string) (string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer func() { _ = f.Close() }()
+
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return "", err
+	}
+
+	return fmt.Sprintf("%x", h.Sum(nil)), nil
 }

@@ -29,6 +29,8 @@ package maasclient
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"testing"
 	"time"
@@ -105,6 +107,41 @@ func TestTags(t *testing.T) {
 		fmt.Printf("✅ Verified tag '%s' is present on machine %s\n", tagName, systemID)
 	})
 
+	t.Run("assign tag to multiple machines", func(t *testing.T) {
+		// First, create a test tag
+		tagName := "test-assign-multiple-tag"
+		err := c.Tags().Create(ctx, tagName)
+		assert.Nil(t, err, "Failed to create tag")
+
+		// TODO: Replace with actual machine system IDs you want to test with
+		// These should be unlocked machines that can have tags assigned
+		systemIDs := []string{"REPLACE_WITH_MACHINE_SYSTEM_ID_1", "REPLACE_WITH_MACHINE_SYSTEM_ID_2"}
+
+		// Skip test if placeholder values are still present
+		if systemIDs[0] == "REPLACE_WITH_MACHINE_SYSTEM_ID_1" {
+			t.Skip("Please replace placeholder machine system IDs with actual unlocked machines")
+			return
+		}
+
+		// Assign the tag to all machines in a single request
+		err = c.Tags().AssignToMachines(ctx, tagName, systemIDs)
+		assert.Nil(t, err, "Failed to assign tag to machines")
+		fmt.Printf("Successfully assigned tag '%s' to machines: %v\n", tagName, systemIDs)
+
+		// Wait a bit for the assignment to propagate
+		time.Sleep(2 * time.Second)
+
+		for _, systemID := range systemIDs {
+			machine := c.Machines().Machine(systemID)
+			detailedMachine, err := machine.Get(ctx)
+			assert.Nil(t, err, "Failed to get machine details for %s", systemID)
+			tags := detailedMachine.Tags()
+			assert.Contains(t, tags, tagName,
+				"Tag '%s' not found on machine %s. Machine tags: %v", tagName, systemID, tags)
+			fmt.Printf("✅ Verified tag '%s' is present on machine %s\n", tagName, systemID)
+		}
+	})
+
 	t.Run("unassign tag from machines", func(t *testing.T) {
 		// Create a test tag
 		tagName := "test-assign-unassign-tag"
@@ -139,4 +176,143 @@ func TestTags(t *testing.T) {
 			"Tag '%s' should not be present on machine %s after unassign. Machine tags: %v", tagName, systemID, machinetags)
 		fmt.Printf("✅ Verified tag '%s' is removed from machine %s\n", tagName, systemID)
 	})
+}
+
+func TestTagsAssignToMachines(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("posts one add value per system ID in a single request", func(t *testing.T) {
+		var gotMethod, gotPath string
+		var gotAdd []string
+		requestCount := 0
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			requestCount++
+			gotMethod = r.Method
+			gotPath = r.URL.Path
+			assert.Nil(t, r.ParseForm())
+			gotAdd = r.PostForm["add"]
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = fmt.Fprint(w, "{}")
+		}))
+		defer server.Close()
+
+		c := NewAuthenticatedClientSet(server.URL, "consumer:token:secret")
+
+		err := c.Tags().AssignToMachines(ctx, "gpu-tag", []string{"abc123", "def456", "ghi789"})
+		assert.Nil(t, err)
+		assert.Equal(t, 1, requestCount)
+		assert.Equal(t, http.MethodPost, gotMethod)
+		assert.Equal(t, "/api/2.0/tags/gpu-tag/op-update_nodes", gotPath)
+		assert.Equal(t, []string{"abc123", "def456", "ghi789"}, gotAdd)
+	})
+
+	t.Run("skips empty system IDs", func(t *testing.T) {
+		var gotAdd []string
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			assert.Nil(t, r.ParseForm())
+			gotAdd = r.PostForm["add"]
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = fmt.Fprint(w, "{}")
+		}))
+		defer server.Close()
+
+		c := NewAuthenticatedClientSet(server.URL, "consumer:token:secret")
+
+		err := c.Tags().AssignToMachines(ctx, "gpu-tag", []string{"", "abc123", ""})
+		assert.Nil(t, err)
+		assert.Equal(t, []string{"abc123"}, gotAdd)
+	})
+
+	t.Run("no-op without a request when tag name is empty", func(t *testing.T) {
+		requestCount := 0
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			requestCount++
+		}))
+		defer server.Close()
+
+		c := NewAuthenticatedClientSet(server.URL, "consumer:token:secret")
+
+		err := c.Tags().AssignToMachines(ctx, "", []string{"abc123"})
+		assert.Nil(t, err)
+		assert.Equal(t, 0, requestCount)
+	})
+
+	t.Run("no-op without a request when no usable system IDs", func(t *testing.T) {
+		requestCount := 0
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			requestCount++
+		}))
+		defer server.Close()
+
+		c := NewAuthenticatedClientSet(server.URL, "consumer:token:secret")
+
+		err := c.Tags().AssignToMachines(ctx, "gpu-tag", nil)
+		assert.Nil(t, err)
+
+		err = c.Tags().AssignToMachines(ctx, "gpu-tag", []string{"", ""})
+		assert.Nil(t, err)
+
+		assert.Equal(t, 0, requestCount)
+	})
+
+	t.Run("returns error on non-2xx response", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = fmt.Fprint(w, "No Tag matches the given query.")
+		}))
+		defer server.Close()
+
+		c := NewAuthenticatedClientSet(server.URL, "consumer:token:secret")
+
+		err := c.Tags().AssignToMachines(ctx, "missing-tag", []string{"abc123"})
+		assert.NotNil(t, err)
+		assert.Contains(t, err.Error(), "status: 404")
+	})
+
+	t.Run("escapes tag name in the path", func(t *testing.T) {
+		var gotEscapedPath string
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			gotEscapedPath = r.URL.EscapedPath()
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = fmt.Fprint(w, "{}")
+		}))
+		defer server.Close()
+
+		c := NewAuthenticatedClientSet(server.URL, "consumer:token:secret")
+
+		err := c.Tags().AssignToMachines(ctx, "gpu tag", []string{"abc123"})
+		assert.Nil(t, err)
+		assert.Equal(t, "/api/2.0/tags/gpu%20tag/op-update_nodes", gotEscapedPath)
+	})
+}
+
+// Regression test: Tag.UnmarshalJSON used to populate comment from the
+// kernel_opts field, so Comment() returned kernel options instead of the
+// tag's comment.
+func TestTagsList_UnmarshalsComment(t *testing.T) {
+	ctx := context.Background()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = fmt.Fprint(w, `[
+		  {
+		    "name": "gpu",
+		    "definition": "//node[@class=\"display\"]",
+		    "comment": "machines with GPUs",
+		    "kernel_opts": "console=tty0",
+		    "resource_uri": "/MAAS/api/2.0/tags/gpu/"
+		  }
+		]`)
+	}))
+	defer server.Close()
+
+	c := NewAuthenticatedClientSet(server.URL, "consumer:token:secret")
+
+	tags, err := c.Tags().List(ctx)
+	assert.Nil(t, err)
+	assert.Len(t, tags, 1)
+	assert.Equal(t, "gpu", tags[0].Name())
+	assert.Equal(t, "machines with GPUs", tags[0].Comment())
+	assert.Equal(t, "console=tty0", tags[0].KernelOpts())
+	assert.Equal(t, `//node[@class="display"]`, tags[0].Definition())
 }
